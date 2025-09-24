@@ -1,120 +1,85 @@
 import React, { useMemo, useState } from "react";
 import Header from "../components/Header";
-import { FaExternalLinkAlt, FaSearch } from "react-icons/fa";
+import ResponsiveIframe from "../components/ResponsiveIframe";
 
-type FormItem = {
-  nombre: string;
-  seccion: "Satisfacción y Experiencia" | "Prestación de Servicio" | "Otros instrumentos";
-  tipos: { label: "Auto diligenciamiento" | "Dispositivo"; url: string }[];
+/** Secciones y un solo enlace ODK por sección */
+type Seccion =
+  | "Cliente oculto presencial Punto CADE"
+  | "Calificación de procesos"
+  | "Formulario de Calificación de PQRSD"
+  | "Formulario de Calificación de Procesos"
+  | "Formularios de Cliente Oculto"
+  | "Satisfacción y experiencia de la ciudadanía";
+
+const ODK_LINKS: Record<Seccion, string | null> = {
+  "Cliente oculto presencial Punto CADE": "https://v3.proyectamos-odk.com/-/single/djg99nRZHZDH52lSKTmdjH22YdO29z8?st=LDmWHRRU6DCxE$kZ4sO8KS4GSh2eJC$MAyRY58AnZ4RPaaeLc926s6MqGP4S3mg3", 
+  "Calificación de procesos": "https://v3.proyectamos-odk.com/-/single/bhQ2AuXFQTeXrQ1sgM94vpCE5e1uHvz?st=$61rAhag2UElUCaPI5oxWLNh7e8gHc3DDkYXIL7J2jpqUcB$7PAWugGbW!9ESDBD",
+  "Formulario de Calificación de PQRSD":
+    "https://v3.proyectamos-odk.com/-/single/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7",
+  "Formulario de Calificación de Procesos": null, // TODO
+  "Formularios de Cliente Oculto": null, // TODO,
+  "Satisfacción y experiencia de la ciudadanía": "https://v3.proyectamos-odk.com/-/single/RVEcPrbIemhtXCXyL96ynpfOMs1l7oM?st=pyY4d89!d5HshHLh87!p!gfq4fAhBGloCpb!L0oaitrmlw1aZQdvbKi7dPNtJ3FS"
 };
 
-const DATA: FormItem[] = [
-  {
-    nombre: "Encuesta de Satisfacción (General)",
-    seccion: "Satisfacción y Experiencia",
-
-    tipos: [
-      { label: "Auto diligenciamiento", url: "https://odk.example.org/form/sat-general?mode=self" },
-      { label: "Dispositivo", url: "https://odk.example.org/form/sat-general?mode=device" },
-    ],
-  },
-  {
-    nombre: "Experiencia en Trámites Digitales",
-    seccion: "Otros instrumentos",
-    tipos: [
-      { label: "Auto diligenciamiento", url: "https://odk.example.org/form/exp-tramites?mode=self" },
-      { label: "Dispositivo", url: "https://odk.example.org/form/exp-tramites?mode=device" },
-    ],
-  },
-  {
-    nombre: "Punto de Atención Presencial",
-    seccion: "Prestación de Servicio",
-    tipos: [
-      { label: "Auto diligenciamiento", url: "https://odk.example.org/form/presencial?mode=self" },
-      { label: "Dispositivo", url: "https://odk.example.org/form/presencial?mode=device" },
-    ],
-  },
-];
+const SECCIONES = Object.keys(ODK_LINKS) as Seccion[];
 
 export default function Captura() {
-  const [q, setQ] = useState("");
-  const [seccion, setSeccion] = useState<"Todas" | FormItem["seccion"]>("Todas");
-  const [version, setVersion] = useState<"Todas" | string>("Todas");
-  const [tipo, setTipo] = useState<"Todos" | "Auto diligenciamiento" | "Dispositivo">("Todos");
+  const [active, setActive] = useState<Seccion>("Formulario de Calificación de PQRSD");
 
-
-  const rows = useMemo(() => {
-    return DATA.filter(d => {
-      const matchesQ = q ? (d.nombre.toLowerCase().includes(q.toLowerCase())) : true;
-      const matchesSeccion = seccion === "Todas" ? true : d.seccion === seccion;
-      const matchesTipo = tipo === "Todos" ? true : d.tipos.some(t => t.label === tipo);
-      return matchesQ && matchesSeccion && matchesTipo;
-    });
-  }, [q, seccion, version, tipo]);
+  const currentUrl = useMemo(() => ODK_LINKS[active], [active]);
 
   return (
     <div className="min-h-screen">
       <Header />
+
       <main className="mx-auto grid max-w-6xl gap-4 p-4 md:grid-cols-3">
-        {/* Sidebar filtros */}
+        {/* Sidebar con secciones */}
         <aside className="card h-max md:sticky md:top-20">
-          <h2 className="mb-3 text-lg font-semibold">Filtros</h2>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label>Búsqueda</label>
-              <div className="relative">
-                <input placeholder="Nombre del formulario..." value={q} onChange={e=>setQ(e.target.value)} />
-                <FaSearch className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label>Sección</label>
-              <select value={seccion} onChange={e=>setSeccion(e.target.value as any)}>
-                <option>Todas</option>
-                <option>Satisfacción y Experiencia</option>
-                <option>Prestación de Servicio</option>
-                <option>Otros instrumentos</option>
-              </select>
-            </div>
+          <h2 className="mb-3 text-lg font-semibold">Secciones</h2>
+          <div className="flex flex-col gap-2">
+            {SECCIONES.map((s) => {
+              const hasUrl = !!ODK_LINKS[s];
+              return (
+                <button
+                  key={s}
+                  onClick={() => hasUrl && setActive(s)}
+                  className={`w-full justify-start rounded-md border px-3 py-2 text-left text-sm transition ${
+                    active === s ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
+                  } ${!hasUrl ? "opacity-60 cursor-not-allowed" : ""}`}
+                  title={hasUrl ? s : "Pendiente de enlace"}
+                >
+                  {s}
+                </button>
+              );
+            })}
           </div>
         </aside>
 
-        {/* Tabla/lista */}
+        {/* Vista embebida */}
         <section className="md:col-span-2">
-          <div className="card overflow-x-auto">
-            <table className="min-w-[900px] w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  <th className="p-2">Nombre del Formulario</th>
-                  <th className="p-2">Sección</th>
-                  <th className="p-2">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((d, idx) => (
-                  <tr key={idx} className="border-b">
-                    <td className="p-2 font-medium">{d.nombre}</td>
-                    <td className="p-2">{d.seccion}</td>
-                    <td className="p-2">
-                      <div className="flex flex-wrap gap-2">
-                        {d.tipos.map((t, i) => (
-                          <a key={i} className="btn-outline" href={t.url} target="_blank" rel="noreferrer">
-                            <FaExternalLinkAlt /> {t.label}
-                          </a>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!rows.length && (
-                  <tr><td colSpan={5} className="p-3 text-gray-500">Sin resultados</td></tr>
-                )}
-              </tbody>
-            </table>
+          <div className="card">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h1 className="text-xl font-semibold">Captura · {active}</h1>
+              {currentUrl && (
+                <a href={currentUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline">
+                  Abrir en pestaña nueva
+                </a>
+              )}
+            </div>
+
+            {!currentUrl ? (
+              <div className="rounded-lg border border-dashed p-10 text-center text-gray-500">
+                Esta sección aún no tiene enlace ODK configurado.
+              </div>
+            ) : (
+              <ResponsiveIframe
+                src={currentUrl}
+                title={`ODK · ${active}`}
+                minHeight={760}
+                allow="clipboard-write; fullscreen"
+              />
+            )}
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            * Indicaciones de versión: al actualizar un formulario, incremente el tag y mantenga enlaces anteriores por trazabilidad.
-          </p>
         </section>
       </main>
     </div>
