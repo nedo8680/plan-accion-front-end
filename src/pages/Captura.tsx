@@ -1,122 +1,129 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
 import Header from "../components/Header";
-import { FaExternalLinkAlt, FaSearch } from "react-icons/fa";
+import PageBg from "../components/PageBackground";
 
-type FormItem = {
-  nombre: string;
-  seccion: "Satisfacción y Experiencia" | "Prestación de Servicio" | "Otros instrumentos";
-  tipos: { label: "Auto diligenciamiento" | "Dispositivo"; url: string }[];
+type LinkItem = { label: string; url?: string | null };
+type SubSection = { title: string; items: LinkItem[] };
+type Section = {
+  title: string;
+  items?: LinkItem[];
+  subsections?: SubSection[];
 };
 
-const DATA: FormItem[] = [
-  {
-    nombre: "Encuesta de Satisfacción (General)",
-    seccion: "Satisfacción y Experiencia",
+// URLs actuales.
+const LINKS = {
+  satisfaccion_ciudadania:
+    "https://v3.proyectamos-odk.com/-/single/RVEcPrbIemhtXCXyL96ynpfOMs1l7oM?st=pyY4d89!d5HshHLh87!p!gfq4fAhBGloCpb!L0oaitrmlw1aZQdvbKi7dPNtJ3FS",
+  calificacion_pqrsd:
+    "https://v3.proyectamos-odk.com/-/single/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7",
+  calificacion_procesos:
+    "https://v3.proyectamos-odk.com/-/single/bhQ2AuXFQTeXrQ1sgM94vpCE5e1uHvz?st=$61rAhag2UElUCaPI5oxWLNh7e8gHc3DDkYXIL7J2jpqUcB$7PAWugGbW!9ESDBD",
+  cliente_oculto_punto_cade:
+    "https://v3.proyectamos-odk.com/-/single/djg99nRZHZDH52lSKTmdjH22YdO29z8?st=LDmWHRRU6DCxE$kZ4sO8KS4GSh2eJC$MAyRY58AnZ4RPaaeLc926s6MqGP4S3mg3",
+} as const;
 
-    tipos: [
-      { label: "Auto diligenciamiento", url: "https://odk.example.org/form/sat-general?mode=self" },
-      { label: "Dispositivo", url: "https://odk.example.org/form/sat-general?mode=device" },
+const DATA: Section[] = [
+  {
+    title: "Satisfacción y Experiencia",
+    items: [
+      { label: "Encuesta a la Ciudadanía", url: LINKS.satisfaccion_ciudadania },
+      { label: "Grupos Focales (Sistematización)", url: null },
     ],
   },
   {
-    nombre: "Experiencia en Trámites Digitales",
-    seccion: "Otros instrumentos",
-    tipos: [
-      { label: "Auto diligenciamiento", url: "https://odk.example.org/form/exp-tramites?mode=self" },
-      { label: "Dispositivo", url: "https://odk.example.org/form/exp-tramites?mode=device" },
+    title: "Prestación del Servicio",
+    items: [
+      { label: "Calificación de PQRSD", url: LINKS.calificacion_pqrsd },
+      { label: "Calificación de Procesos", url: LINKS.calificacion_procesos },
+      { label: "Asignación de PQRS", url: "https://modeloserviciociudadania.shinyapps.io/Asignapp/" },
     ],
-  },
-  {
-    nombre: "Punto de Atención Presencial",
-    seccion: "Prestación de Servicio",
-    tipos: [
-      { label: "Auto diligenciamiento", url: "https://odk.example.org/form/presencial?mode=self" },
-      { label: "Dispositivo", url: "https://odk.example.org/form/presencial?mode=device" },
+    subsections: [
+      {
+        title: "Cliente Oculto",
+        items: [
+          { label: "Punto CADE", url: LINKS.cliente_oculto_punto_cade },
+          { label: "SuperCADE Móvil", url: null },
+          { label: "Punto propio", url: null },
+          { label: "Centros Locales", url: null },
+          { label: "Alcaldías Locales", url: null },
+          { label: "Canal Telefónico", url: "https://v3.proyectamos-odk.com/-/single/xbfS6j2lOVuanj491rZOVZhQMhmlMoh?st=L$5TSsk1LFDzX!DvEmsnGBI0aPk9TJAKJq0rhbUihhbmw7w96EQyyGZLrxn0HloN" },
+          { label: "Canal Virtual", url: "https://v3.proyectamos-odk.com/-/single/d6TniNrmYeTbTWj3sMtl5XdkROkkMSv?st=uM3ZbyYEv0LcLEmf3lfRKLXD0m3v2qiJORFhVFV6N2FGmslytEz32owJF3ygkRni" },
+        ],
+      },
     ],
   },
 ];
 
-export default function Captura() {
-  const [q, setQ] = useState("");
-  const [seccion, setSeccion] = useState<"Todas" | FormItem["seccion"]>("Todas");
-  const [version, setVersion] = useState<"Todas" | string>("Todas");
-  const [tipo, setTipo] = useState<"Todos" | "Auto diligenciamiento" | "Dispositivo">("Todos");
-
-
-  const rows = useMemo(() => {
-    return DATA.filter(d => {
-      const matchesQ = q ? (d.nombre.toLowerCase().includes(q.toLowerCase())) : true;
-      const matchesSeccion = seccion === "Todas" ? true : d.seccion === seccion;
-      const matchesTipo = tipo === "Todos" ? true : d.tipos.some(t => t.label === tipo);
-      return matchesQ && matchesSeccion && matchesTipo;
-    });
-  }, [q, seccion, version, tipo]);
-
+function LinkButton({ item }: { item: LinkItem }) {
+  const base =
+    "w-full rounded-md px-4 py-3 text-left text-sm font-medium transition shadow focus:outline-none focus:ring-2 focus:ring-yellow-300";
+  if (!item.url) {
+    return (
+      <button
+        type="button"
+        className={`${base} cursor-not-allowed border bg-gray-100 text-gray-400`}
+        title="Encuesta no disponible por el momento"
+        disabled
+      >
+        {item.label}
+      </button>
+    );
+  }
   return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="mx-auto grid max-w-6xl gap-4 p-4 md:grid-cols-3">
-        {/* Sidebar filtros */}
-        <aside className="card h-max md:sticky md:top-20">
-          <h2 className="mb-3 text-lg font-semibold">Filtros</h2>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label>Búsqueda</label>
-              <div className="relative">
-                <input placeholder="Nombre del formulario..." value={q} onChange={e=>setQ(e.target.value)} />
-                <FaSearch className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label>Sección</label>
-              <select value={seccion} onChange={e=>setSeccion(e.target.value as any)}>
-                <option>Todas</option>
-                <option>Satisfacción y Experiencia</option>
-                <option>Prestación de Servicio</option>
-                <option>Otros instrumentos</option>
-              </select>
-            </div>
-          </div>
-        </aside>
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noreferrer"
+      className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
+      title={item.label}
+    >
+      {item.label}
+    </a>
+  );
+}
 
-        {/* Tabla/lista */}
-        <section className="md:col-span-2">
-          <div className="card overflow-x-auto">
-            <table className="min-w-[900px] w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  <th className="p-2">Nombre del Formulario</th>
-                  <th className="p-2">Sección</th>
-                  <th className="p-2">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((d, idx) => (
-                  <tr key={idx} className="border-b">
-                    <td className="p-2 font-medium">{d.nombre}</td>
-                    <td className="p-2">{d.seccion}</td>
-                    <td className="p-2">
-                      <div className="flex flex-wrap gap-2">
-                        {d.tipos.map((t, i) => (
-                          <a key={i} className="btn-outline" href={t.url} target="_blank" rel="noreferrer">
-                            <FaExternalLinkAlt /> {t.label}
-                          </a>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!rows.length && (
-                  <tr><td colSpan={5} className="p-3 text-gray-500">Sin resultados</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2 text-xs text-gray-500">
-            * Indicaciones de versión: al actualizar un formulario, incremente el tag y mantenga enlaces anteriores por trazabilidad.
-          </p>
-        </section>
+export default function Captura() {
+  return (
+    <PageBg>
+      <Header />
+
+      <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
+        <h1 className="text-2xl font-extrabold text-gray-900 md:text-3xl">
+          Captura de Información
+        </h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Selecciona el formulario correspondiente. Los enlaces se abrirán en una nueva pestaña.
+        </p>
+
+        <div className="mt-6 space-y-8">
+          {DATA.map((section) => (
+            <section key={section.title} className="card">
+              <h2 className="text-xl font-semibold text-gray-900">{section.title}</h2>
+
+              {/* Ítems directos de la sección */}
+              {section.items?.length ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {section.items.map((it) => (
+                    <LinkButton key={it.label} item={it} />
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Subsecciones (como Cliente Oculto) */}
+              {section.subsections?.map((sub) => (
+                <div key={sub.title} className="mt-6">
+                  <h3 className="text-base font-semibold text-gray-700">{sub.title}</h3>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {sub.items.map((it) => (
+                      <LinkButton key={it.label} item={it} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
       </main>
-    </div>
+    </PageBg>
   );
 }
