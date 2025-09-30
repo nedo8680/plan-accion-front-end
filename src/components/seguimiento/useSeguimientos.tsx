@@ -48,14 +48,15 @@ export function useSeguimientos() {
   }
 
   function resetCurrent() {
-    setItems((prev) => {
-        const next = [...prev];
-        next[active] = {...emptySeguimiento(),
-        nombre_entidad: prev[active].nombre_entidad,
-        enlace_entidad: prev[active].enlace_entidad 
-      };
-      return next;
-    });
+    setItems(prev => {
+    const next = [...prev];
+    next[active] = {
+      ...emptySeguimiento(),
+      nombre_entidad: prev[active].nombre_entidad,
+      enlace_entidad: prev[active].enlace_entidad,
+    };
+    return next;
+  });
   }
 
   function duplicate() {
@@ -65,15 +66,6 @@ export function useSeguimientos() {
       ...emptySeguimiento(),
       nombre_entidad: base.nombre_entidad,
       enlace_entidad: base.enlace_entidad,
-      insumo_mejora: base.insumo_mejora,
-      tipo_accion_mejora: base.tipo_accion_mejora,
-      accion_mejora_planteada: base.accion_mejora_planteada,
-      descripcion_actividades: base.descripcion_actividades,
-      evidencia_cumplimiento: base.evidencia_cumplimiento,
-      fecha_inicio: base.fecha_inicio,
-      fecha_final: base.fecha_final,
-      seguimiento: base.seguimiento,
-      observacion_informe_calidad: base.observacion_informe_calidad,
     };
 
     const next = [...prev];

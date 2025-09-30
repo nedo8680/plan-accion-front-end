@@ -89,52 +89,10 @@ export default function SeguimientoPage() {
       <main className="mx-auto max-w-6xl p-4">
         <h1 className="mb-4 text-2xl font-semibold">Seguimiento</h1>
 
-        {/* Tabs de registros + acciones */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {items.map((_, i) => (
-              <button
-                key={i}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  i === active
-                    ? "bg-yellow-400 text-gray-900"
-                    : "bg-[#D32D37] text-white hover:bg-yellow-500 hover:text-gray-900"
-                }`}
-                onClick={() => setActive(i)}
-                title={`Seguimiento ${i + 1}`}
-              >
-                Seguimiento {i + 1}
-              </button>
-            ))}
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            {/* Solo duplicar (con validación de nombre) y eliminar */}
-            <button
-              type="button"
-              className={`btn-outline ${!isDuplicableCurrent ? "cursor-not-allowed opacity-50" : ""}`}
-              onClick={() => {
-                if (!isDuplicableCurrent) {
-                  alert("Para agregar un plan, ingresa al menos el Nombre de la Entidad.");
-                  return;
-                }
-                duplicate();
-              }}
-              title="Agregar plan"
-            >
-              <FaCopy /> <span className="hidden sm:inline">Agregar plan</span>
-            </button>
-
-            <button type="button" className="btn-outline" onClick={remove} title="Eliminar seguimiento">
-              <FaTrash /> <span className="hidden sm:inline">Eliminar</span>
-            </button>
-          </div>
-        </div>
-
         {/* Card del formulario y barra de exportación */}
         <section className="card mb-6">
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-semibold">Formulario · Seguimiento {active + 1}</h2>
+            <h2 className="text-lg font-semibold">Formulario · Seguimiento </h2>
 
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <button
@@ -180,7 +138,21 @@ export default function SeguimientoPage() {
             </div>
           </div>
 
-          <SeguimientoForm value={current} onChange={update} />
+          <SeguimientoForm 
+            value={current}
+            onChange={update}
+            index={active}
+            total={items.length}
+            onAdd={() => {
+              if (!isDuplicableCurrent) {
+                alert("Para agregar un plan, ingresa al menos el Nombre de la Entidad.");
+                return;
+              }
+              duplicate(); // tu duplicate redefine “agregar plan”
+            }}
+            onRemove={remove}
+            canAdd={isDuplicableCurrent}
+            setActive={setActive} />
 
           <p className="mt-3 text-xs text-gray-600">
             Para exportar, cada registro debe tener <b>Nombre Entidad</b> y <b>Fecha Inicio</b>. Para{" "}

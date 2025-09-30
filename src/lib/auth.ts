@@ -1,6 +1,6 @@
 import { jwtDecode } from "jwt-decode";
 
-export type Decoded = { sub: string; role: "admin" | "usuario"; uid: number; exp: number };
+export type Decoded = { sub: string; role: "admin" | "entidad"; uid: number; exp: number };
 
 export function setToken(token: string) {
   localStorage.setItem("token", token);

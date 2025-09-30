@@ -1,6 +1,7 @@
 import React from "react";
 import Header from "../components/Header";
 import PageBg from "../components/PageBackground";
+import { useAuth } from "../context/AuthContext";
 
 type LinkItem = { label: string; url?: string | null };
 type SubSection = { title: string; items: LinkItem[] };
@@ -10,42 +11,30 @@ type Section = {
   subsections?: SubSection[];
 };
 
-// URLs actuales.
-const LINKS = {
-  satisfaccion_ciudadania:
-    "https://v3.proyectamos-odk.com/-/single/RVEcPrbIemhtXCXyL96ynpfOMs1l7oM?st=pyY4d89!d5HshHLh87!p!gfq4fAhBGloCpb!L0oaitrmlw1aZQdvbKi7dPNtJ3FS",
-  calificacion_pqrsd:
-    "https://v3.proyectamos-odk.com/-/single/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7",
-  calificacion_procesos:
-    "https://v3.proyectamos-odk.com/-/single/bhQ2AuXFQTeXrQ1sgM94vpCE5e1uHvz?st=$61rAhag2UElUCaPI5oxWLNh7e8gHc3DDkYXIL7J2jpqUcB$7PAWugGbW!9ESDBD",
-  cliente_oculto_punto_cade:
-    "https://v3.proyectamos-odk.com/-/single/djg99nRZHZDH52lSKTmdjH22YdO29z8?st=LDmWHRRU6DCxE$kZ4sO8KS4GSh2eJC$MAyRY58AnZ4RPaaeLc926s6MqGP4S3mg3",
-} as const;
-
 const DATA: Section[] = [
   {
     title: "Satisfacción y Experiencia",
     items: [
-      { label: "Encuesta a la Ciudadanía", url: LINKS.satisfaccion_ciudadania },
-      { label: "Grupos Focales (Sistematización)", url: null },
+      { label: "Encuesta a la Ciudadanía", url: "https://v3.proyectamos-odk.com/-/single/RVEcPrbIemhtXCXyL96ynpfOMs1l7oM?st=pyY4d89!d5HshHLh87!p!gfq4fAhBGloCpb!L0oaitrmlw1aZQdvbKi7dPNtJ3FS" },
+      { label: "Grupos Focales (Sistematización)", url: "https://v3.proyectamos-odk.com/-/single/LIGFILsNxKfRcw1qW1kx1wgYTEE8X6i?st=f7m2TQ8jhkBERmHNzCRHpHHNfF4jUYe04Vp2auE4uX9k0cDq9$Np4yzv1rLy$la6" },
     ],
   },
   {
     title: "Prestación del Servicio",
     items: [
-      { label: "Calificación de PQRSD", url: LINKS.calificacion_pqrsd },
-      { label: "Calificación de Procesos", url: LINKS.calificacion_procesos },
+      { label: "Calificación de PQRSD", url: "https://v3.proyectamos-odk.com/-/single/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7"},
+      { label: "Calificación de Procesos", url: "https://v3.proyectamos-odk.com/-/single/bhQ2AuXFQTeXrQ1sgM94vpCE5e1uHvz?st=$61rAhag2UElUCaPI5oxWLNh7e8gHc3DDkYXIL7J2jpqUcB$7PAWugGbW!9ESDBD" },
       { label: "Asignación de PQRS", url: "https://modeloserviciociudadania.shinyapps.io/Asignapp/" },
     ],
     subsections: [
       {
         title: "Cliente Oculto",
         items: [
-          { label: "Punto CADE", url: LINKS.cliente_oculto_punto_cade },
-          { label: "SuperCADE Móvil", url: null },
-          { label: "Punto propio", url: null },
-          { label: "Centros Locales", url: null },
-          { label: "Alcaldías Locales", url: null },
+          { label: "Punto CADE", url: "https://v3.proyectamos-odk.com/-/single/djg99nRZHZDH52lSKTmdjH22YdO29z8?st=LDmWHRRU6DCxE$kZ4sO8KS4GSh2eJC$MAyRY58AnZ4RPaaeLc926s6MqGP4S3mg3" },
+          { label: "SuperCADE Móvil", url: "https://v3.proyectamos-odk.com/-/single/evPVf9QdlGPX2hLbP9YOSLcrsX0IfHx?st=EXHTW4c1sL6opisWUfRwhGreFJ9UvdZ4NlFDUAalxHufY!oljDKosP6atvrgqEuQ" },
+          { label: "Punto propio", url: "https://v3.proyectamos-odk.com/-/single/t3UetmcVefO6iCHq3hadW2QzW6OTLvK?st=AAYBA2rxzKZrY7g!rtxZYFrtV5IIiiHDQovVORTmbBENdiATF73eNP8MrdY$WkUL" },
+          { label: "Centros Locales", url: "https://v3.proyectamos-odk.com/-/single/hZBpKfbB4oNdgZ0QWZhX9SgakmtaVIp?st=FTo8UDl93an4nSdno6P!fuN6QymDCd2QJ9ZeDzLs5BCBaG5HKi9C5slYW!McDQ!n" },
+          { label: "Alcaldías Locales", url: "https://v3.proyectamos-odk.com/-/single/djg99nRZHZDH52lSKTmdjH22YdO29z8?st=LDmWHRRU6DCxE$kZ4sO8KS4GSh2eJC$MAyRY58AnZ4RPaaeLc926s6MqGP4S3mg3" },
           { label: "Canal Telefónico", url: "https://v3.proyectamos-odk.com/-/single/xbfS6j2lOVuanj491rZOVZhQMhmlMoh?st=L$5TSsk1LFDzX!DvEmsnGBI0aPk9TJAKJq0rhbUihhbmw7w96EQyyGZLrxn0HloN" },
           { label: "Canal Virtual", url: "https://v3.proyectamos-odk.com/-/single/d6TniNrmYeTbTWj3sMtl5XdkROkkMSv?st=uM3ZbyYEv0LcLEmf3lfRKLXD0m3v2qiJORFhVFV6N2FGmslytEz32owJF3ygkRni" },
         ],
@@ -83,6 +72,37 @@ function LinkButton({ item }: { item: LinkItem }) {
 }
 
 export default function Captura() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isEntidad = user?.role === "entidad";
+
+  // Etiquetas permitidas para ENTIDAD
+  const allowedLabels = new Set<string>([
+    "Encuesta a la Ciudadanía",
+    "Grupos Focales (Sistematización)",
+    "Calificación de Procesos",
+  ]);
+
+  // Si es ENTIDAD, filtramos DATA para mostrar solo lo permitido
+  const filteredData: Section[] = React.useMemo(() => {
+    if (isAdmin) return DATA;
+
+    if (isEntidad) {
+      return DATA.map((section) => {
+        const items = section.items?.filter((it) => allowedLabels.has(it.label)) ?? [];
+        // Para ENTIDAD no hay subsecciones permitidas (todas ocultas)
+        const subsections: SubSection[] = [];
+        // Si una sección queda vacía (sin items ni subsections), la omitimos luego
+        return { ...section, items, subsections };
+      }).filter(sec => (sec.items && sec.items.length) || (sec.subsections && sec.subsections.length));
+    }
+
+    // Si no hay usuario (no debería por ruta protegida) devolvemos vacío
+    return [];
+  }, [isAdmin, isEntidad]);
+
+  const SECTIONS = isAdmin ? DATA : filteredData;
+
   return (
     <PageBg>
       <Header />
@@ -96,7 +116,7 @@ export default function Captura() {
         </p>
 
         <div className="mt-6 space-y-8">
-          {DATA.map((section) => (
+          {SECTIONS.map((section) => (
             <section key={section.title} className="card">
               <h2 className="text-xl font-semibold text-gray-900">{section.title}</h2>
 

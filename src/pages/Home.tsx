@@ -60,7 +60,7 @@ export default function HomePage() {
             {/* CTA */}
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
-                to="/captura"
+                to="/login"
                 className="rounded-md bg-yellow-400 px-5 py-2.5 font-semibold text-black shadow hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2"
               >
                 Ingresar

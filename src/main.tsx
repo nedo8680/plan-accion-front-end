@@ -9,13 +9,19 @@ import PrivateRoute from "./router/PrivateRoute";
 import Captura from "./pages/Captura";
 import Reportes from "./pages/Reportes";
 import "./index.css";
+import RouteErrorBoundary from "./router/RouteErrorBoundary";
 
 const router = createBrowserRouter([
-  { path: "/", element: <PrivateRoute><Home /></PrivateRoute> },
-  { path: "/login", element: <LoginPage /> },
-  { path: "/seguimiento", element: <PrivateRoute><SeguimientoPage /></PrivateRoute> },
-  { path: "/captura", element: <PrivateRoute><Captura /></PrivateRoute> },
-  { path: "/reportes", element: <PrivateRoute><Reportes /></PrivateRoute> },
+  // 🔓 Landing pública
+  { path: "/", element: <Home />, errorElement: <RouteErrorBoundary /> },
+
+  // 🔓 Login público
+  { path: "/login", element: <LoginPage />, errorElement: <RouteErrorBoundary /> },
+
+  // 🔐 Rutas protegidas
+  { path: "/seguimiento", element: <PrivateRoute><SeguimientoPage /></PrivateRoute>, errorElement: <RouteErrorBoundary /> },
+  { path: "/captura",     element: <PrivateRoute><Captura /></PrivateRoute>,       errorElement: <RouteErrorBoundary /> },
+  { path: "/reportes",    element: <PrivateRoute><Reportes /></PrivateRoute>,      errorElement: <RouteErrorBoundary /> },
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

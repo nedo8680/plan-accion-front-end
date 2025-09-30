@@ -1,12 +1,28 @@
 import React from "react";
 import type { Seguimiento, TipoAccion, InsumoMejora } from "./useSeguimientos";
+import { FaTrash, FaPlus } from "react-icons/fa";
 
 type Props = {
   value: Seguimiento;
   onChange: <K extends keyof Seguimiento>(key: K, value: Seguimiento[K]) => void;
+  index: number;                // índice del seguimiento activo
+  total: number;                // total de seguimientos
+  onAdd: () => void;            // agrega plan (usa tu duplicate() con nueva lógica)
+  onRemove: () => void;         // elimina plan actual
+  canAdd: boolean;              // habilita Agregar plan (true si hay nombre_entidad)
+  setActive: (i: number) => void; // cambiar pestaña Seguimiento X
 };
 
-export default function SeguimientoForm({ value, onChange }: Props) {
+export default function SeguimientoForm({
+  value,
+  onChange,
+  index,
+  total,
+  onAdd,
+  onRemove,
+  canAdd,
+  setActive,
+}: Props) {
   return (
     <form className="space-y-3">
       {/* Nombre Entidad */}
@@ -38,9 +54,53 @@ export default function SeguimientoForm({ value, onChange }: Props) {
         </div>
       </div>
 
-      {/* Sección detalles con fieldset + legend */}
+      {/* Sección Detalles del seguimiento */}
       <fieldset className="space-y-3 rounded-md border border-gray-300 p-3">
-        <legend className="px-2 text-sm font-semibold text-gray-700">Detalles del seguimiento</legend>
+        <legend className="px-2 text-sm font-semibold text-gray-700">
+          Detalles del seguimiento
+        </legend>
+
+        {/* Tabs: Seguimiento 1, 2, ... */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+          {Array.from({ length: total }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setActive(i)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                i === index
+                  ? "bg-yellow-400 text-gray-900"
+                  : "bg-[#D32D37] text-white hover:bg-yellow-500 hover:text-gray-900"
+              }`}
+              title={`Seguimiento ${i + 1}`}
+            >
+              Seguimiento {i + 1}
+            </button>
+          ))}
+          </div>
+           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className={`btn-outline ${!canAdd ? "cursor-not-allowed opacity-50" : ""}`}
+              onClick={onAdd}
+              title="Agregar plan"
+            >
+              <FaPlus /> <span className="hidden sm:inline">Agregar plan</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={onRemove}
+              title="Eliminar plan"
+            >
+              <FaTrash /> <span className="hidden sm:inline">Eliminar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ---- CAMPOS DE DETALLE (todos los que ya tenías) ---- */}
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
           <label className="text-sm font-medium text-gray-700 md:text-right md:pr-3">
@@ -171,6 +231,7 @@ export default function SeguimientoForm({ value, onChange }: Props) {
             />
           </div>
         </div>
+
       </fieldset>
     </form>
   );
