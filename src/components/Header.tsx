@@ -24,7 +24,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
             <img src="/images/logo-blanco-bta.png" alt="Alcaldía Mayor de Bogotá"
-                 className="h-9 w-auto object-contain md:h-12" loading="eager" fetchPriority="high" />
+                 className="h-9 w-auto object-contain md:h-12" loading="eager" />
           </Link>
 
           {/* Navegación Desktop: 1) Captura 2) Reportes 3) Seguimiento */}

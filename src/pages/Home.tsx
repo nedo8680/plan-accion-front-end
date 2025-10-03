@@ -9,7 +9,6 @@ export default function HomePage() {
         src="/images/slider-bogota-3-optimized.jpg"
         alt="Panorámica de Bogotá"
         className="absolute inset-0 h-full w-full object-cover"
-        fetchPriority="high"
       />
 
       {/* Overlay para contraste */}
