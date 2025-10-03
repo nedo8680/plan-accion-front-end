@@ -19,6 +19,7 @@ export type Plan = {
   fecha_final?: string | null;
   seguimiento?: string | null;
   observacion_calidad?: string | null;
+  seguimientos?: Seguimiento[];
 };
 
 export type Seguimiento = {
@@ -91,23 +92,29 @@ export function useSeguimientos() {
     })();
   }, []);
 
-  // Seleccionar plan (por id o índice)
-  async function setActive(idxOrId: number) {
-    const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
-    if (!plan) return;
+async function setActive(idxOrId: number) {
+  const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
+  if (!plan) return;
 
-    setActivePlanId(plan.id);
-    const segs: Seguimiento[] = await api(`/seguimiento/${plan.id}/seguimiento`);
-    setChildren(segs);
+  setActivePlanId(plan.id);
 
-    const first = segs[0];
-    setForm({
-      ...(first ?? emptyForm()),
-      nombre_entidad: plan.nombre_entidad,
-      enlace_entidad: plan.enlace_entidad ?? "",
-      plan_id: plan.id,
-    });
-  }
+
+  const segs: Seguimiento[] =
+    plan.seguimientos && plan.seguimientos.length
+      ? plan.seguimientos
+      : await api(`/seguimiento/${plan.id}/seguimiento`);
+
+  setChildren(segs);
+
+  const first = segs[0];
+  setForm({
+    ...(first ?? emptyForm()),
+    nombre_entidad: plan.nombre_entidad,
+    enlace_entidad: plan.enlace_entidad ?? "",
+    plan_id: plan.id,
+  });
+}
+
 
   function startNew() {
     setActivePlanId(null);
@@ -129,24 +136,46 @@ export function useSeguimientos() {
     }));
   }
 
-  async function ensurePlanExists(): Promise<number> {
-    if (activePlanId) return activePlanId;
-    const nombre = form.nombre_entidad?.trim();
-    if (!nombre) throw new Error("Ingresa el nombre de la entidad para crear el plan.");
+ async function ensurePlanExists(): Promise<number> {
+  if (activePlanId) return activePlanId;
 
-    const planPayload = {
-      nombre_entidad: nombre,
-      enlace_entidad: toNull(form.enlace_entidad),
-      estado: "Pendiente",
-    };
-    const created: Plan = await api("/seguimiento", {
-      method: "POST",
-      body: JSON.stringify(planPayload),
-    });
-    setPlans((prev) => [created, ...prev]);
-    setActivePlanId(created.id);
-    return created.id;
-  }
+  const nombre = form.nombre_entidad?.trim();
+  if (!nombre) throw new Error("Ingresa el nombre de la entidad para crear el plan.");
+
+  const planPayload = {
+    nombre_entidad: nombre,
+    enlace_entidad: toNull(form.enlace_entidad),
+    estado: "Pendiente",
+  };
+
+  // crea el plan (el back ya crea 1 seguimiento inicial embebido)
+  const created: Plan = await api("/seguimiento", {
+    method: "POST",
+    body: JSON.stringify(planPayload),
+  });
+
+  // agrega a la lista y marca activo
+  setPlans((prev) => [created, ...prev]);
+  setActivePlanId(created.id);
+
+  // usa el seguimiento inicial si vino embebido; si no, refetch
+  const segs = created.seguimientos && created.seguimientos.length
+    ? created.seguimientos
+    : await api(`/seguimiento/${created.id}/seguimiento`);
+
+  setChildren(segs);
+
+  const first = segs[0];
+  setForm({
+    ...(first ?? emptyForm()),
+    plan_id: created.id,
+    nombre_entidad: created.nombre_entidad,
+    enlace_entidad: created.enlace_entidad ?? "",
+  });
+
+  return created.id;
+}
+
 
   // Guardar seguimiento actual
   async function saveCurrent() {
