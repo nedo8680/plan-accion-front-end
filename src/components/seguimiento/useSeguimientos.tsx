@@ -9,6 +9,7 @@ export type Plan = {
   enlace_entidad?: string | null;
   estado?: string | null;
   created_by: number;
+  created_at?: string | null;
 
   insumo_mejora?: string | null;
   tipo_accion_mejora?: string | null;
@@ -41,7 +42,7 @@ export type Seguimiento = {
 
   created_at?: string | null;
   updated_at?: string | null;
-  
+  updated_by_email?: string | null;
 };
 
 export type UnifiedForm = Seguimiento & {
@@ -75,8 +76,13 @@ export function useSeguimientos() {
   const isAuditor = role === "auditor";
   const isAdmin = role === "admin";
 
+  const actorEmail = useMemo(() => {
+    const u: any = user;
+    return u?.email ?? u?.sub ?? null;
+  }, [user]);
+
   // PADRES
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [createdOrder, setCreatedOrder] = useState<"asc" | "desc">("desc");const [plans, setPlans] = useState<Plan[]>([]);
   const [activePlanId, setActivePlanId] = useState<number | null>(null);
 
   // HIJOS
@@ -91,6 +97,38 @@ export function useSeguimientos() {
       setPlans(data);
     })();
   }, []);
+  // ── util: parseo de fecha seguro
+  function toDate(v?: string | null) {
+    if (!v) return null;
+    const d = v.length > 10 ? new Date(v) : new Date(v + "T00:00:00");
+    return isNaN(+d) ? null : d;
+  }
+
+  // Lista ORDENADA para UI
+  const sortedPlans = useMemo(() => {
+    const arr = [...plans];
+    const getTs = (p: Plan): number => {
+      // 1) del plan
+      const d1 = toDate((p as any).created_at ?? (p as any).createdAt);
+      if (d1) return  d1.getTime();
+      // 2) del primer seguimiento (si vino embebido)
+      const firstSeg = p.seguimientos?.[0];
+      const d2 = toDate((firstSeg as any)?.created_at ?? (firstSeg as any)?.createdAt);
+      if (d2) return d2.getTime();
+      // 3) fallback: id
+      return p.id ?? 0;
+    };
+    arr.sort((a, b) => {
+      const da = getTs(a);
+      const db = getTs(b);
+      return (da - db) * (createdOrder === "asc" ? 1 : -1);
+    });
+    return arr;
+  }, [plans, createdOrder]);
+
+  function toggleCreatedOrder() {
+    setCreatedOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+  }
 
 async function setActive(idxOrId: number) {
   const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
@@ -176,48 +214,54 @@ async function setActive(idxOrId: number) {
   return created.id;
 }
 
-
-  // Guardar seguimiento actual
-  async function saveCurrent() {
-    if (!form.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
+  // Guardar seguimiento actual (acepta overrides)
+  async function saveCurrent(overrides?: Partial<UnifiedForm>) {
+    const base = overrides ? { ...form, ...overrides } : form;
+    if (!base.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
     const planId = await ensurePlanExists();
 
     const childPayload: Seguimiento = {
-      observacion_informe_calidad: toNull(form.observacion_informe_calidad),
-      insumo_mejora: toNull(form.insumo_mejora),
-      tipo_accion_mejora: toNull(form.tipo_accion_mejora),
-      accion_mejora_planteada: toNull(form.accion_mejora_planteada),
-      descripcion_actividades: toNull(form.descripcion_actividades),
-      evidencia_cumplimiento: toNull(form.evidencia_cumplimiento),
-      fecha_inicio: toNull(form.fecha_inicio),
-      fecha_final: toNull(form.fecha_final),
-      seguimiento: form.seguimiento ?? "Pendiente",
-      enlace_entidad: toNull(form.enlace_entidad),
-      ...(isAuditor || isAdmin ? { observacion_calidad: toNull(form.observacion_calidad) } : {}),
+      observacion_informe_calidad: toNull(base.observacion_informe_calidad),
+      insumo_mejora: toNull(base.insumo_mejora),
+      tipo_accion_mejora: toNull(base.tipo_accion_mejora),
+      accion_mejora_planteada: toNull(base.accion_mejora_planteada),
+      descripcion_actividades: toNull(base.descripcion_actividades),
+      evidencia_cumplimiento: toNull(base.evidencia_cumplimiento),
+      fecha_inicio: toNull(base.fecha_inicio),
+      fecha_final: toNull(base.fecha_final),
+      seguimiento: base.seguimiento ?? "Pendiente",
+      enlace_entidad: toNull(base.enlace_entidad),
+      ...(isAuditor || isAdmin ? { observacion_calidad: toNull(base.observacion_calidad) } : {}),
     };
 
     let saved: Seguimiento;
-    if (form.id) {
-      saved = await api(`/seguimiento/${planId}/seguimiento/${form.id}`, {
+    if (base.id) {
+      saved = await api(`/seguimiento/${planId}/seguimiento/${base.id}`, {
         method: "PUT",
         body: JSON.stringify(childPayload),
       });
-      setChildren((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
+      // anota email del actor actual (solo UI)
+      const withActor = { ...saved, updated_by_email: actorEmail };
+      setChildren(prev => prev.map(x => (x.id === saved.id ? withActor : x)));
+      saved = withActor;
     } else {
       saved = await api(`/seguimiento/${planId}/seguimiento`, {
         method: "POST",
         body: JSON.stringify(childPayload),
       });
-      setChildren((prev) => [...prev, saved]);
+      const withActor = { ...saved, updated_by_email: actorEmail };
+      setChildren(prev => [...prev, withActor]);
+      saved = withActor;
     }
 
     setForm((prev) => ({
       ...prev,
-      ...saved,
+      ...(overrides ? { ...saved, ...overrides } : saved),
       plan_id: planId,
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: prev.enlace_entidad,
     }));
+    return saved;
   }
 
   // Crear seguimiento inmediatamente (para "Agregar" instantáneo)
@@ -275,16 +319,26 @@ async function setActive(idxOrId: number) {
     const child = children[safe];
     if (!child) return;
     setForm((prev) => ({
-      ...prev,
-      ...child,
+      ...emptyForm(),                     
+      ...child,                          
       plan_id: activePlanId ?? child.plan_id,
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: prev.enlace_entidad,
+      evidencia_cumplimiento: child.evidencia_cumplimiento ?? "",
+      observacion_informe_calidad: child.observacion_informe_calidad ?? "",
+      observacion_calidad: child.observacion_calidad ?? "",
+      insumo_mejora: child.insumo_mejora ?? "",
+      tipo_accion_mejora: child.tipo_accion_mejora ?? "",
+      accion_mejora_planteada: child.accion_mejora_planteada ?? "",
+      descripcion_actividades: child.descripcion_actividades ?? "",
+      fecha_inicio: child.fecha_inicio ?? "",
+      fecha_final: child.fecha_final ?? "",
+      seguimiento: child.seguimiento ?? "Pendiente",
     }));
   }
 
   const rows = useMemo(() => {
-    return plans.map((p, idx) => ({
+    return sortedPlans.map((p, idx) => ({
       "#": idx + 1,
       Plan: p.num_plan_mejora ?? "—",
       Entidad: p.nombre_entidad,
@@ -292,7 +346,7 @@ async function setActive(idxOrId: number) {
       Seguimiento: p.seguimiento ?? "—",
       Estado: p.estado ?? "—",
     }));
-  }, [plans]);
+  }, [sortedPlans]);
 
   const isDuplicableCurrent = !!form.nombre_entidad?.trim();
   const indexInChildren = form.id ? Math.max(0, children.findIndex((c) => c.id === form.id)) : 0;
@@ -300,7 +354,7 @@ async function setActive(idxOrId: number) {
   const pagerTotal = activePlanId ? Math.max(1, children.length || 1) : 1;
 
   return {
-    plans,
+    plans: sortedPlans,
     rows,
     activePlanId,
     setActive,
@@ -313,12 +367,14 @@ async function setActive(idxOrId: number) {
     saveCurrent,
     removeById,
     addChildImmediate,
-    removePlan,          // 👈 exportado
+    removePlan,         
 
     setActiveChild,
     isDuplicableCurrent,
     pagerIndex,
     pagerTotal,
     role,
+    createdOrder,
+    toggleCreatedOrder,
   };
 }

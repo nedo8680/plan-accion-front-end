@@ -1,13 +1,30 @@
 import React, { useMemo, useState } from "react";
 import type { Plan } from "./useSeguimientos";
+import { BsSortUpAlt,  BsSortDown } from "react-icons/bs";
+
+type Filters = {
+  createdOrder: "asc" | "desc";
+  toggleCreatedOrder: () => void;
+};
 
 type Props = {
   plans: Plan[];
   activePlanId: number | null;
   onSelect: (id: number) => void;
+
+  count?: number;
+  createdOrder: "asc" | "desc";
+  toggleCreatedOrder: () => void;
 };
 
-export default function PlanesSidebar({ plans, activePlanId, onSelect }: Props) {
+export default function PlanesSidebar({
+  plans,
+  activePlanId,
+  onSelect,
+  count,
+  createdOrder,
+  toggleCreatedOrder,
+}: Props) {
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
@@ -21,7 +38,28 @@ export default function PlanesSidebar({ plans, activePlanId, onSelect }: Props) 
   }, [q, plans]);
 
   return (
-    <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm">
+<aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Planes</h3>
+        <button
+          type="button"
+          onClick={toggleCreatedOrder}
+          className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium hover:bg-gray-200"
+          title={createdOrder === "asc" ? "Ordenar: desde la última" : "Ordenar: desde la primera"}
+          aria-label="Alternar orden por fecha de creación"
+        >
+          {createdOrder === "asc" ? (
+            <>
+              <BsSortUpAlt className="text-base" />
+            </>
+          ) : (
+            <>
+              <BsSortDown className="text-base" />
+            </>
+          )}
+        </button>
+      </div>
+      {/* Buscador local */}
       <div className="mb-2">
         <input
           className="w-full rounded-md border px-3 py-2 text-sm"

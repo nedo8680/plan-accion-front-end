@@ -1,11 +1,31 @@
-const BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const BASE = (((import.meta as any).env?.VITE_API_URL) || "").replace(/\/+$/, "");
 export const API_URL: string = BASE;
 
 const TIMEOUT_MS = 8000; // 8s por si hay cold start
 const RETRIES = 1;       // 1 reintento rápido
+const RUTAS = {
+  enviar:          (id: number) => `/seguimiento/${id}/enviar`,
+  solicitarCambios:(id: number) => `/seguimiento/${id}/solicitar-cambios`,
+  aprobar:         (id: number) => `/seguimiento/${id}/aprobar`,
+};
+ 
+// ====== UTIL: construir URL absoluta hacia el backend (uploads, etc.) ======
+export function toAbsolute(urlPath: string): string {
+  if (!urlPath) return urlPath;
+  try {
+    // Si urlPath ya es absoluta, URL la respeta; si es relativa, la resuelve contra API_URL
+    return new URL(urlPath, API_URL).href;
+  } catch {
+    return urlPath;
+  }
+}
+
 
 // ====== ESTADO GLOBAL DE CONEXIÓN (opcional para banner) ======
 export type ApiConnState = "ok" | "reconnecting" | "down" | "auth";
+export type UserRole = "admin" | "entidad" | "auditor";
+export type EntidadPerm = "captura_reportes" | "reportes_seguimiento";
+
 type Listener = (s: ApiConnState, msg?: string) => void;
 
 let _state: ApiConnState = "ok";
@@ -18,9 +38,25 @@ function _emit(next: ApiConnState, msg?: string) {
   _listeners.forEach((fn) => fn(_state, _message));
 }
 
+// ====== ADMIN: USERS API ======
+export const UsersAPI = {
+  list: () => api(`/users`),
+  create: (payload: { email: string; password: string; role: UserRole; entidad_perm?: EntidadPerm }) =>
+    api(`/users`, { method: "POST", body: JSON.stringify(payload) }),
+  setRole: (id: number, role: UserRole) =>
+    api(`/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  setPerm: (id: number, entidad_perm: EntidadPerm) =>
+    api(`/users/${id}/perm`, { method: "PATCH", body: JSON.stringify({ entidad_perm }) }),
+  resetPassword: (id: number, new_password: string) =>
+    api(`/users/${id}/password`, { method: "PATCH", body: JSON.stringify({ new_password }) }),  
+  remove: (id: number) =>
+    api(`/users/${id}`, { method: "DELETE" }),
+};
+
+
 export function onApiStateChange(fn: Listener): () => void {
   _listeners.add(fn);
-  return () => { _listeners.delete(fn); }; // ← retorna void
+  return () => { _listeners.delete(fn); }; 
 }
 
 export function getApiState() {
@@ -109,7 +145,7 @@ export async function api(path: string, options: RequestInit = {}) {
         // 5xx suele ser cold start o error temporal del back
         if (res.status >= 500) {
           // primer fallo: marcamos "reconnecting"
-          _emit("reconnecting", "Sesión expirada, inicia sesion nuevamente.");
+           _emit("reconnecting", "Reintentando conexión con el servidor…");
           throw Object.assign(new Error(`HTTP_${res.status}`), { code: "SERVER_ERROR" });
         }
         const msg = await res.text().catch(() => res.statusText);
@@ -132,7 +168,7 @@ export async function api(path: string, options: RequestInit = {}) {
 
       if (i < RETRIES && (netLike || serverLike)) {
         // damos 1 segundo para que Cloud Run "despierte"
-        _emit("reconnecting", "Sesión expirada, inicia sesion nuevamente.");
+        _emit("reconnecting", "Reintentando conexión con el servidor…");
         await new Promise((r) => setTimeout(r, 1000));
         continue;
       }
@@ -146,4 +182,41 @@ export async function api(path: string, options: RequestInit = {}) {
   }
 
   throw lastErr;
+}
+// ====== UPLOAD: Evidencia (PDF/DOC/DOCX) ======
+export async function uploadEvidence( file: File
+): Promise<{
+  href: string;
+  publicUrl: string | null;
+  url: string | null;
+  filename: string;
+  content_type: string;
+}> {
+  if (!file) throw new Error("No hay archivo");
+  const allowed = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Solo se permiten PDF o Word (doc, docx)");
+  }
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await api("/files/upload", { method: "POST", body: form });
+  
+  const json = res; 
+  const href =
+    (json && json.public_url) ? json.public_url
+    : (json && json.url)       ? toAbsolute(json.url)
+    : null;
+  if (!href) throw new Error("Respuesta inválida del servidor de archivos");
+  return {
+    href,                        // <- úsalo directamente en el <a href=...>
+    publicUrl: json.public_url || null,
+    url: json.url || null,       // ruta relativa si estás en modo local
+    filename: json.filename,
+    content_type: json.content_type,
+  };
 }

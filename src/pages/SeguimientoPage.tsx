@@ -3,19 +3,76 @@ import Header from "../components/Header";
 import PageBg from "../components/PageBackground";
 import { FaEraser } from "react-icons/fa";
 import SeguimientoForm from "../components/seguimiento/SeguimientoForm";
-import { useSeguimientos } from "../components/seguimiento/useSeguimientos";
+import { useSeguimientos, type Plan, type Seguimiento } from "../components/seguimiento/useSeguimientos";
 import { useAuth } from "../context/AuthContext";
+import { FiSend } from "react-icons/fi";
 
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
 import PlanesSidebar from "../components/seguimiento/PlanesSidebar";
 import SeguimientosTimeline from "../components/seguimiento/SeguimientosTimeline";
 
+import {
+  exportSeguimientosCSV,
+  exportSeguimientosXLSX,
+  exportSeguimientosPDF,
+} from "../components/seguimiento/exporters";
+
+// ─────────────────────────────────────────────────────────────
+// Botonera de exportación (plan seleccionado)
+// ─────────────────────────────────────────────────────────────
+function ExportPlanButtons({
+  plan,
+  segs,
+}: {
+  plan: Plan | null;
+  segs: Seguimiento[];
+}) {
+  const disabled = !plan || segs.length === 0;
+
+  return (
+    <div className="ml-2 flex items-center gap-2">
+      <span className="text-xs font-medium text-gray-600">Exportar:</span>
+      <button
+        type="button"
+        onClick={() => exportSeguimientosCSV(plan, segs)}
+        className="btn-outline"
+        disabled={disabled}
+        title={disabled ? "Selecciona un plan con seguimientos" : "Exportar CSV"}
+      >
+        CSV
+      </button>
+      <button
+        type="button"
+        onClick={() => exportSeguimientosXLSX(plan, segs)}
+        className="btn-outline"
+        disabled={disabled}
+        title={disabled ? "Selecciona un plan con seguimientos" : "Exportar XLSX"}
+      >
+        XLSX
+      </button>
+      <button
+        type="button"
+        onClick={() => exportSeguimientosPDF(plan, segs)}
+        className="btn-outline"
+        disabled={disabled}
+        title={disabled ? "Selecciona un plan con seguimientos" : "Exportar PDF"}
+      >
+        PDF
+      </button>
+    </div>
+  );
+}
+
 export default function SeguimientoPage() {
   const {
-    plans, rows, activePlanId, setActive,
-    children, current, updateLocal, resetCurrent, startNew, saveCurrent,
+    plans,                    // planes padre
+    activePlanId, setActive,  // id plan activo
+    children,                 // seguimientos del plan activo
+    current, updateLocal, resetCurrent, startNew, saveCurrent,
     removeById, addChildImmediate, removePlan,
     isDuplicableCurrent, pagerIndex, setActiveChild,
+    createdOrder,
+    toggleCreatedOrder,
   } = useSeguimientos();
 
   const { user } = useAuth();
@@ -32,56 +89,41 @@ export default function SeguimientoPage() {
   const canDeletePlan  = !!activePlanId && (isAdmin || isEntidad);
   const canAddChild    = Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
 
-  // exportadores
-  function ensureOrAlert(): boolean {
-    if (rows.length === 0) { alert("No hay registros guardados para exportar."); return false; }
-    return true;
-  }
-  function exportCSV() {
-    if (!ensureOrAlert()) return;
-    const headers = Object.keys(rows[0]);
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) =>
-        headers.map((h) => {
-          const v = (r as any)[h] ?? "";
-          const s = String(v).replace(/\r?\n|\r/g, " ").trim();
-          return /[\",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        }).join(",")
-      ),
-    ].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const today = new Date().toISOString().slice(0, 10);
-    a.href = url; a.download = `seguimientos_${today}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  }
-  async function exportXLSX() {
-    if (!ensureOrAlert()) return;
-    const xlsx = await import("xlsx");
-    const ws = xlsx.utils.json_to_sheet(rows);
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(wb, ws, "Planes");
-    const today = new Date().toISOString().slice(0, 10);
-    xlsx.writeFile(wb, `planes_${today}.xlsx`);
-  }
-  async function exportPDF() {
-    if (!ensureOrAlert()) return;
-    const [{ default: jsPDF }, auto] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
-    const doc = new jsPDF({ orientation: "landscape" });
-    const headers = Object.keys(rows[0]);
-    const body = rows.map((r) => headers.map((h) => (r as any)[h] ?? ""));
-    (auto as any).default(doc, { head: [headers], body, styles: { fontSize: 8 }, headStyles: { fillColor: [10,47,90] } });
-    const today = new Date().toISOString().slice(0, 10);
-    doc.save(`planes_${today}.pdf`);
-  }
-  async function guardarEnviar() { await saveCurrent(); alert("Guardado correctamente."); }
+  // plan activo (objeto)
+  const activePlan = React.useMemo(
+    () => plans.find(p => p.id === activePlanId) ?? null,
+    [plans, activePlanId]
+  );
 
-  // ===== Solo móvil: segment control para alternar Formulario/Historial
+  // enviar/guardar
+  const [sending, setSending] = React.useState(false);
+  async function handleEnviar() {
+    try {
+      setSending(true);
+      await saveCurrent({ seguimiento: "En progreso" });
+      alert("Seguimiento enviado a revisión.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // ===== Solo móvil: alternar Formulario/Historial
   const [mobileTab, setMobileTab] = React.useState<"form" | "history">(
     () => (children.length ? "history" : "form")
   );
+
+  // Enfocar formulario (desktop)
+  const formFocusRef = React.useRef<HTMLInputElement>(null);
+  function focusForm() {
+    setMobileTab("form");
+    requestAnimationFrame(() => {
+      const el = formFocusRef.current;
+      if (el) {
+        el.focus();
+        el.closest("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
   React.useEffect(() => {
     setMobileTab(children.length ? "history" : "form");
   }, [activePlanId, children.length]);
@@ -96,7 +138,7 @@ export default function SeguimientoPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn-outline" onClick={startNew}>Nuevo registro</button>
 
-            {/* Borrar registro (plan) */}
+            {/* Borrar plan */}
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
                 canDeletePlan ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
@@ -111,16 +153,8 @@ export default function SeguimientoPage() {
               Borrar registro
             </button>
 
-            <button className="btn" onClick={guardarEnviar} disabled={!isDuplicableCurrent}>
-              Guardar / Enviar
-            </button>
-
-            <div className="ml-2 flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-600">Exportar:</span>
-              <button type="button" onClick={exportCSV} className="btn-outline">CSV</button>
-              <button type="button" onClick={exportXLSX} className="btn-outline">XLSX</button>
-              <button type="button" onClick={exportPDF} className="btn-outline">PDF</button>
-            </div>
+            {/* Exportar (plan + seguimientos) */}
+            <ExportPlanButtons plan={activePlan} segs={children} />
           </div>
         </div>
 
@@ -132,12 +166,15 @@ export default function SeguimientoPage() {
               plans={plans}
               activePlanId={activePlanId}
               onSelect={(id) => setActive(id)}
+              count={plans.length}
+              createdOrder={createdOrder}
+              toggleCreatedOrder={toggleCreatedOrder}
             />
           </div>
 
           {/* Panel principal */}
           <div className="lg:col-span-8 space-y-4">
-            {/* Segment control SOLO en móvil */}
+            {/* Segment control SOLO móvil */}
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 lg:hidden">
               <button
                 type="button"
@@ -160,12 +197,15 @@ export default function SeguimientoPage() {
             </div>
 
             {/* Formulario */}
-            <section
-              className={`card ${mobileTab === "form" ? "block" : "hidden lg:block"}`}
-            >
+            <section className={`card ${mobileTab === "form" ? "block" : "hidden lg:block"}`}>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Formulario · Seguimiento</h2>
-                <button type="button" className="btn-outline" onClick={resetCurrent} title="Limpiar formulario actual">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={resetCurrent}
+                  title="Limpiar formulario actual"
+                >
                   <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
                 </button>
               </div>
@@ -174,6 +214,7 @@ export default function SeguimientoPage() {
                 value={current as any}
                 onChange={updateLocal as any}
                 readOnlyFields={{ observacion_calidad: isEntidad }}
+                focusRef={formFocusRef}
                 header={
                   <SeguimientoTabs
                     items={children}
@@ -181,6 +222,7 @@ export default function SeguimientoPage() {
                     onSelect={(id) => {
                       const idx = children.findIndex((c) => c.id === id);
                       if (idx >= 0) setActiveChild(idx);
+                      focusForm();
                     }}
                     onAdd={async () => {
                       try { await addChildImmediate(); }
@@ -194,6 +236,19 @@ export default function SeguimientoPage() {
                     canAdd={canAddChild}
                     canDelete={canDeleteChild}
                   />
+                }
+                footer={
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleEnviar}
+                      disabled={!isDuplicableCurrent || sending}
+                      className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
+                      title="Guardar y enviar"
+                    >
+                      <FiSend /> {sending ? "Enviando..." : "Enviar"}
+                    </button>
+                  </div>
                 }
               />
 
@@ -209,15 +264,18 @@ export default function SeguimientoPage() {
               )}
             </section>
 
-            {/* Historial debajo del formulario en escritorio; en móvil alterna por tab */}
+            {/* Historial (debajo en desktop; tab en móvil) */}
             <section className={`${mobileTab === "history" ? "block" : "hidden lg:block"}`}>
-              <h3 className="mb-2 text-sm font-semibold text-gray-700">Historial de seguimientos</h3>
+              <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                Historial de seguimientos
+              </h3>
               <SeguimientosTimeline
                 items={children}
                 activeId={activeChildId}
                 onSelect={(id) => {
                   const idx = children.findIndex((c) => c.id === id);
                   if (idx >= 0) setActiveChild(idx);
+                  focusForm();
                 }}
               />
             </section>

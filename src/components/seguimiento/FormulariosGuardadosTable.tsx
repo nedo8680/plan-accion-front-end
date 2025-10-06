@@ -1,4 +1,3 @@
-// src/components/seguimiento/FormulariosGuardadosTable.tsx
 import React from "react";
 import type { Seguimiento } from "./useSeguimientos";
 

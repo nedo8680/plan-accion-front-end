@@ -1,5 +1,6 @@
 import React from "react";
 import type { Seguimiento } from "./useSeguimientos";
+import { FiClock, FiUser } from "react-icons/fi";
 
 type Props = {
   items: Seguimiento[];
@@ -51,13 +52,13 @@ export default function SeguimientosTimeline({ items, activeId, onSelect }: Prop
       {items.map((s, i) => {
         const isActive = s.id === activeId;
         const last = s.updated_at ?? (s as any).updatedAt ?? s.created_at ?? (s as any).createdAt ?? null;
-
+        const updatedBy = s.updated_by_email ?? "";
         return (
           <div
             key={s.id ?? `seg-${i}`}
             className={[
               "rounded-xl border bg-white p-3 shadow-sm transition",
-              isActive ? "ring-2 ring-blue-500" : "hover:shadow",
+              isActive ? "ring-2 ring-blue-500" : "hover:shadow"
             ].join(" ")}
           >
             <div className="flex items-start justify-between gap-2">
@@ -66,8 +67,25 @@ export default function SeguimientosTimeline({ items, activeId, onSelect }: Prop
                   <div className="font-medium">Seguimiento {i + 1}</div>
                   <Pill>{s.seguimiento ?? "Pendiente"}</Pill>
                 </div>
-                <div className="mt-1 text-xs text-gray-500">
-                  Última actualización: {fmtBogota(last)}
+                {/* Badge verde con fecha  email */}
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800"
+                    title="Última actualización"
+                  >
+                    <FiClock className="h-3.5 w-3.5" />
+                    <span>Última actualización: {fmtBogota(last)}</span>
+                  </span>
+                  {updatedBy &&
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700"
+                    title="Actualizado por"
+                  >
+                    Por:
+                    <FiUser className="h-3.5 w-3.5" />
+                    <span>{updatedBy}</span>
+                  </span>
+                  }
                 </div>
               </div>
 

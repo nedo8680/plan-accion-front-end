@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { FaLock } from "react-icons/fa";
-import { getUser } from "../lib/auth"; // 👈 para leer rol inmediatamente tras login
 
 export default function LoginPage() {
   const { login, user } = useAuth();
@@ -12,7 +11,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Si ya está logeado y visita /login, redirige según rol
   useEffect(() => {
     if (user) {
       const dest = user.role === "admin" ? "/captura" : "/seguimiento";
@@ -26,7 +24,6 @@ export default function LoginPage() {
     setErr(null);
     try {
       await login(email, password);
-      // ⚡️ Inmediatamente después de login, lee el rol desde el token
       nav("/captura", { replace: true });
     } catch (e: any) {
       setErr(e.message || "Error al iniciar sesión");
@@ -62,13 +59,22 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </div>
-          {err && <p className="text-sm text-red-600">{err}</p>}
+          {err && 
+          <div>
+            <p className="text-sm text-red-600">{err}...</p>
+            <p className="mt-1 text-xs text-gray-600">
+              ¿Olvidaste tu contraseña?{" "}
+              <b className="font-medium text-yellow-600">
+                Contacta al administrador para restablecerla
+              </b>.
+            </p> 
+          </div>}
           <button className="w-full bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
         <div className="mt-3 text-xs text-gray-500">
-          Demo: admin@demo.com / admin123 — usuario@demo.com / usuario123
+          Demo: admin@demo.com - admin123 / usuario@demo.com - usuario123 / profesionalddcs@demo.com  - ProfDDCS123
         </div>
       </div>
     </div>
