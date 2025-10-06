@@ -1,11 +1,19 @@
-const BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const BASE = (((import.meta as any).env?.VITE_API_URL) || "").replace(/\/+$/, "");
 export const API_URL: string = BASE;
 
 const TIMEOUT_MS = 8000; // 8s por si hay cold start
 const RETRIES = 1;       // 1 reintento rápido
+const RUTAS = {
+  enviar:          (id: number) => `/seguimiento/${id}/enviar`,
+  solicitarCambios:(id: number) => `/seguimiento/${id}/solicitar-cambios`,
+  aprobar:         (id: number) => `/seguimiento/${id}/aprobar`,
+};
 
 // ====== ESTADO GLOBAL DE CONEXIÓN (opcional para banner) ======
 export type ApiConnState = "ok" | "reconnecting" | "down" | "auth";
+export type UserRole = "admin" | "entidad" | "auditor";
+export type EntidadPerm = "captura_reportes" | "reportes_seguimiento";
+
 type Listener = (s: ApiConnState, msg?: string) => void;
 
 let _state: ApiConnState = "ok";
@@ -18,9 +26,25 @@ function _emit(next: ApiConnState, msg?: string) {
   _listeners.forEach((fn) => fn(_state, _message));
 }
 
+// ====== ADMIN: USERS API ======
+export const UsersAPI = {
+  list: () => api(`/users`),
+  create: (payload: { email: string; password: string; role: UserRole; entidad_perm?: EntidadPerm }) =>
+    api(`/users`, { method: "POST", body: JSON.stringify(payload) }),
+  setRole: (id: number, role: UserRole) =>
+    api(`/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  setPerm: (id: number, entidad_perm: EntidadPerm) =>
+    api(`/users/${id}/perm`, { method: "PATCH", body: JSON.stringify({ entidad_perm }) }),
+  resetPassword: (id: number, new_password: string) =>
+    api(`/users/${id}/password`, { method: "PATCH", body: JSON.stringify({ new_password }) }),  
+  remove: (id: number) =>
+    api(`/users/${id}`, { method: "DELETE" }),
+};
+
+
 export function onApiStateChange(fn: Listener): () => void {
   _listeners.add(fn);
-  return () => { _listeners.delete(fn); }; // ← retorna void
+  return () => { _listeners.delete(fn); }; 
 }
 
 export function getApiState() {
@@ -109,7 +133,7 @@ export async function api(path: string, options: RequestInit = {}) {
         // 5xx suele ser cold start o error temporal del back
         if (res.status >= 500) {
           // primer fallo: marcamos "reconnecting"
-          _emit("reconnecting", "Sesión expirada, inicia sesion nuevamente.");
+           _emit("reconnecting", "Reintentando conexión con el servidor…");
           throw Object.assign(new Error(`HTTP_${res.status}`), { code: "SERVER_ERROR" });
         }
         const msg = await res.text().catch(() => res.statusText);

@@ -41,7 +41,7 @@ export type Seguimiento = {
 
   created_at?: string | null;
   updated_at?: string | null;
-  
+  updated_by_email?: string | null;
 };
 
 export type UnifiedForm = Seguimiento & {
@@ -74,6 +74,11 @@ export function useSeguimientos() {
   const isEntidad = role === "entidad";
   const isAuditor = role === "auditor";
   const isAdmin = role === "admin";
+
+  const actorEmail = useMemo(() => {
+    const u: any = user;
+    return u?.email ?? u?.sub ?? null;
+  }, [user]);
 
   // PADRES
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -176,48 +181,54 @@ async function setActive(idxOrId: number) {
   return created.id;
 }
 
-
-  // Guardar seguimiento actual
-  async function saveCurrent() {
-    if (!form.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
+  // Guardar seguimiento actual (acepta overrides)
+  async function saveCurrent(overrides?: Partial<UnifiedForm>) {
+    const base = overrides ? { ...form, ...overrides } : form;
+    if (!base.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
     const planId = await ensurePlanExists();
 
     const childPayload: Seguimiento = {
-      observacion_informe_calidad: toNull(form.observacion_informe_calidad),
-      insumo_mejora: toNull(form.insumo_mejora),
-      tipo_accion_mejora: toNull(form.tipo_accion_mejora),
-      accion_mejora_planteada: toNull(form.accion_mejora_planteada),
-      descripcion_actividades: toNull(form.descripcion_actividades),
-      evidencia_cumplimiento: toNull(form.evidencia_cumplimiento),
-      fecha_inicio: toNull(form.fecha_inicio),
-      fecha_final: toNull(form.fecha_final),
-      seguimiento: form.seguimiento ?? "Pendiente",
-      enlace_entidad: toNull(form.enlace_entidad),
-      ...(isAuditor || isAdmin ? { observacion_calidad: toNull(form.observacion_calidad) } : {}),
+      observacion_informe_calidad: toNull(base.observacion_informe_calidad),
+      insumo_mejora: toNull(base.insumo_mejora),
+      tipo_accion_mejora: toNull(base.tipo_accion_mejora),
+      accion_mejora_planteada: toNull(base.accion_mejora_planteada),
+      descripcion_actividades: toNull(base.descripcion_actividades),
+      evidencia_cumplimiento: toNull(base.evidencia_cumplimiento),
+      fecha_inicio: toNull(base.fecha_inicio),
+      fecha_final: toNull(base.fecha_final),
+      seguimiento: base.seguimiento ?? "Pendiente",
+      enlace_entidad: toNull(base.enlace_entidad),
+      ...(isAuditor || isAdmin ? { observacion_calidad: toNull(base.observacion_calidad) } : {}),
     };
 
     let saved: Seguimiento;
-    if (form.id) {
-      saved = await api(`/seguimiento/${planId}/seguimiento/${form.id}`, {
+    if (base.id) {
+      saved = await api(`/seguimiento/${planId}/seguimiento/${base.id}`, {
         method: "PUT",
         body: JSON.stringify(childPayload),
       });
-      setChildren((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
+      // anota email del actor actual (solo UI)
+      const withActor = { ...saved, updated_by_email: actorEmail };
+      setChildren(prev => prev.map(x => (x.id === saved.id ? withActor : x)));
+      saved = withActor;
     } else {
       saved = await api(`/seguimiento/${planId}/seguimiento`, {
         method: "POST",
         body: JSON.stringify(childPayload),
       });
-      setChildren((prev) => [...prev, saved]);
+      const withActor = { ...saved, updated_by_email: actorEmail };
+      setChildren(prev => [...prev, withActor]);
+      saved = withActor;
     }
 
     setForm((prev) => ({
       ...prev,
-      ...saved,
+      ...(overrides ? { ...saved, ...overrides } : saved),
       plan_id: planId,
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: prev.enlace_entidad,
     }));
+    return saved;
   }
 
   // Crear seguimiento inmediatamente (para "Agregar" instantáneo)
@@ -313,7 +324,7 @@ async function setActive(idxOrId: number) {
     saveCurrent,
     removeById,
     addChildImmediate,
-    removePlan,          // 👈 exportado
+    removePlan,         
 
     setActiveChild,
     isDuplicableCurrent,

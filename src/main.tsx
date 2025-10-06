@@ -1,3 +1,4 @@
+/* @refresh skip */
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
@@ -11,12 +12,13 @@ import Reportes from "./pages/Reportes";
 import "./index.css";
 import RouteErrorBoundary from "./router/RouteErrorBoundary";
 import GlobalConnectionBanner from "./components/GlobalConnectionBanner";
+import AdminUsers from "./pages/AdminUsers";
 
 function RootShell() {
   return (
     <>
       <GlobalConnectionBanner />
-      <Outlet /> {/* Aquí se renderiza la ruta hija */}
+      <Outlet />
     </>
   );
 }
@@ -29,14 +31,33 @@ const router = createBrowserRouter([
     children: [
       // 🔓 Landing pública
       { path: "/", element: <Home />, errorElement: <RouteErrorBoundary /> },
+      { path: "/reportes", element: <Reportes />, errorElement: <RouteErrorBoundary /> },
 
       // 🔓 Login público
       { path: "/login", element: <LoginPage />, errorElement: <RouteErrorBoundary /> },
 
       // 🔐 Rutas protegidas
-      { path: "/seguimiento", element: <PrivateRoute><SeguimientoPage /></PrivateRoute>, errorElement: <RouteErrorBoundary /> },
-      { path: "/captura",     element: <PrivateRoute><Captura /></PrivateRoute>,       errorElement: <RouteErrorBoundary /> },
-      { path: "/reportes",    element: <PrivateRoute><Reportes /></PrivateRoute>,      errorElement: <RouteErrorBoundary /> },
+      {
+        path: "/captura",
+        element: (
+          <PrivateRoute>
+            <Captura />
+          </PrivateRoute>
+        ),
+        errorElement: <RouteErrorBoundary />
+      },
+      {
+        path: "/seguimiento",
+        element: (
+          <PrivateRoute>
+            <SeguimientoPage />
+          </PrivateRoute>
+        ),
+        errorElement: <RouteErrorBoundary />
+      },
+      { path: "/reportes",    element: <Reportes />, errorElement: <RouteErrorBoundary /> }, 
+      // 🔐 Admin: Gestión de usuarios (la página valida rol)
+      { path: "/admin/usuarios", element: <PrivateRoute><AdminUsers /></PrivateRoute>,  errorElement: <RouteErrorBoundary /> },
     ]
   }
 ]);
