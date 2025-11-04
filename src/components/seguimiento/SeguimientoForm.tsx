@@ -120,6 +120,21 @@ export default function SeguimientoForm({ value, onChange, readOnlyFields, topba
         {/* Header interno (tabs + agregar/borrar seguimiento) */}
         {header && <div className="mb-4">{header}</div>}
 
+        
+        {/* Indicador (nuevo, se rellena si importan archivo) */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
+            Indicador
+          </label>
+          <div className="md:col-span-2">
+            <input
+              className="w-full"
+              value={(value as any).indicador ?? ""}
+              onChange={(e) => onChange("indicador" as any, e.target.value)}
+            />
+          </div>
+        </div>
+
         {/* Insumo de mejora */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
           <label className="text-sm font-medium text-gray-700 md:text-right md:pr-3">

@@ -5,8 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { FiChevronDown } from "react-icons/fi";
 
 type LinkItem = { label: string; url?: string | null };
-type SubSection = { title: string; items: LinkItem[] };
-type Group = { title: string; description?: string; subsections: SubSection[] };
+type SubSection = { title: string; items: LinkItem[], subsections?: SubSection[] };
+type Group = { title: string; description?: string; subsections: SubSection[], items?: LinkItem[] };
 
 type Section = {
   title: string;
@@ -22,7 +22,7 @@ const DATA: Section[] = [
     groups: [
       {
         title: "Encuesta a la Ciudadanía",
-        description: "Selecciona el canal correspondiente. Cada enlace abrirá en una nueva pestaña.",
+        description: "",
         subsections: [
           {
             title: "Canal Presencial",
@@ -51,12 +51,7 @@ const DATA: Section[] = [
         ],
       },
     ],
-    items: [
-      {
-        label: "Grupos Focales (Sistematización)",
-        url: "https://v3.proyectamos-odk.com/-/single/LIGFILsNxKfRcw1qW1kx1wgYTEE8X6i?st=f7m2TQ8jhkBERmHNzCRHpHHNfF4jUYe04Vp2auE4uX9k0cDq9$Np4yzv1rLy$la6",
-      },
-    ],
+    items: [],
   },
   {
     title: "Prestación del Servicio",
@@ -69,14 +64,16 @@ const DATA: Section[] = [
       {
         title: "Cliente Oculto",
         items: [
-          { label: "Punto CADE", url: "https://v3.proyectamos-odk.com/-/single/djg99nRZHZDH52lSKTmdjH22YdO29z8?st=LDmWHRRU6DCxE$kZ4sO8KS4GSh2eJC$MAyRY58AnZ4RPaaeLc926s6MqGP4S3mg3" },
-          { label: "SuperCADE Móvil", url: "https://v3.proyectamos-odk.com/-/single/evPVf9QdlGPX2hLbP9YOSLcrsX0IfHx?st=EXHTW4c1sL6opisWUfRwhGreFJ9UvdZ4NlFDUAalxHufY!oljDKosP6atvrgqEuQ" },
-          { label: "Punto propio", url: "https://v3.proyectamos-odk.com/-/single/t3UetmcVefO6iCHq3hadW2QzW6OTLvK?st=AAYBA2rxzKZrY7g!rtxZYFrtV5IIiiHDQovVORTmbBENdiATF73eNP8MrdY$WkUL" },
-          { label: "Centros Locales", url: "https://v3.proyectamos-odk.com/-/single/hZBpKfbB4oNdgZ0QWZhX9SgakmtaVIp?st=FTo8UDl93an4nSdno6P!fuN6QymDCd2QJ9ZeDzLs5BCBaG5HKi9C5slYW!McDQ!n" },
-          { label: "Alcaldías Locales", url: "https://v3.proyectamos-odk.com/-/single/NWtIUXw0oB9NbVekG1HtxKbo5W4GDIc?st=aSAbIFVBrIy2rxNjEX5Qru1Vn!bZQpQpBg2df5Oq!NtERb6H1Qm7!Uj0W$K7699g" },
           { label: "Canal Telefónico", url: "https://v3.proyectamos-odk.com/-/single/xbfS6j2lOVuanj491rZOVZhQMhmlMoh?st=L$5TSsk1LFDzX!DvEmsnGBI0aPk9TJAKJq0rhbUihhbmw7w96EQyyGZLrxn0HloN" },
           { label: "Canal Virtual", url: "https://v3.proyectamos-odk.com/-/single/d6TniNrmYeTbTWj3sMtl5XdkROkkMSv?st=uM3ZbyYEv0LcLEmf3lfRKLXD0m3v2qiJORFhVFV6N2FGmslytEz32owJF3ygkRni" },
         ],
+        subsections: [{
+          title: "Canal Presencial",
+          items: [
+            { label: "Evaluación de estándares", url: "" },
+            { label: "Autoevaluación de capacidad", url: "" },
+          ],
+        }],
       },
     ],
   },
@@ -140,21 +137,26 @@ function GroupAccordion({ group }: { group: Group }) {
         aria-label={group.title}
       >
         <span>{group.title}</span>
-
-        {/* Icono chevron: rota cuando está abierto */}
         <span
           aria-hidden="true"
           className={`transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
         >
           <FiChevronDown className="h-5 w-5 text-gray-500" />
         </span>
-
-        {/* Texto solo para lectores de pantalla */}
         <span className="sr-only">{open ? "Contraer" : "Expandir"}</span>
       </summary>
 
       {group.description ? (
         <p className="mt-1 px-4 text-sm text-gray-600">{group.description}</p>
+      ) : null}
+
+      {/* 👇 si el grupo tiene items directos, que los pinte igual que los demás */}
+      {group.items?.length ? (
+        <div className="mt-3 px-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {group.items.map((it) => (
+            <LinkButton key={it.label} item={it} />
+          ))}
+        </div>
       ) : null}
 
       <div className="px-4 pb-4">
@@ -165,6 +167,7 @@ function GroupAccordion({ group }: { group: Group }) {
     </details>
   );
 }
+
 
 /* ======================== PAGE ======================== */
 export default function Captura() {
@@ -230,11 +233,28 @@ export default function Captura() {
               {section.subsections?.map((sub) => (
                 <div key={sub.title} className="mt-6">
                   <h3 className="text-base font-semibold text-gray-700">{sub.title}</h3>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {sub.items.map((it) => (
-                      <LinkButton key={it.label} item={it} />
-                    ))}
-                  </div>
+
+                  {/* botones directos de la subsección (p. ej. "Cliente Oculto") */}
+                  {sub.items?.length ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {sub.items.map((it) => (
+                        <LinkButton key={it.label} item={it} />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {/* 👇 subsecciones internas (p. ej. "Sistematización Cliente Oculto") como acordeón */}
+                  {sub.subsections?.map((nested) => (
+                    <GroupAccordion
+                      key={nested.title}
+                      group={{
+                        title: nested.title,
+                        description: undefined,
+                        subsections: nested.subsections ?? [],
+                        items: nested.items ?? [],
+                      }}
+                    />
+                  ))}
                 </div>
               ))}
 

@@ -43,6 +43,10 @@ export type Seguimiento = {
   created_at?: string | null;
   updated_at?: string | null;
   updated_by_email?: string | null;
+
+  // ya los tenías declarados
+  entidad?: string | null;
+  indicador?: string | null;
 };
 
 export type UnifiedForm = Seguimiento & {
@@ -63,6 +67,8 @@ export const emptyForm = (): UnifiedForm => ({
   fecha_inicio: "",
   fecha_final: "",
   seguimiento: "Pendiente",
+  entidad: "",
+  indicador: "",    // 👈 nuevo campo queda vacío si no importan archivo
 });
 
 function toNull(v?: string | null) {
@@ -82,7 +88,8 @@ export function useSeguimientos() {
   }, [user]);
 
   // PADRES
-  const [createdOrder, setCreatedOrder] = useState<"asc" | "desc">("desc");const [plans, setPlans] = useState<Plan[]>([]);
+  const [createdOrder, setCreatedOrder] = useState<"asc" | "desc">("desc");
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [activePlanId, setActivePlanId] = useState<number | null>(null);
 
   // HIJOS
@@ -97,25 +104,21 @@ export function useSeguimientos() {
       setPlans(data);
     })();
   }, []);
-  // ── util: parseo de fecha seguro
+
   function toDate(v?: string | null) {
     if (!v) return null;
     const d = v.length > 10 ? new Date(v) : new Date(v + "T00:00:00");
     return isNaN(+d) ? null : d;
   }
 
-  // Lista ORDENADA para UI
   const sortedPlans = useMemo(() => {
     const arr = [...plans];
     const getTs = (p: Plan): number => {
-      // 1) del plan
       const d1 = toDate((p as any).created_at ?? (p as any).createdAt);
-      if (d1) return  d1.getTime();
-      // 2) del primer seguimiento (si vino embebido)
+      if (d1) return d1.getTime();
       const firstSeg = p.seguimientos?.[0];
       const d2 = toDate((firstSeg as any)?.created_at ?? (firstSeg as any)?.createdAt);
       if (d2) return d2.getTime();
-      // 3) fallback: id
       return p.id ?? 0;
     };
     arr.sort((a, b) => {
@@ -130,29 +133,39 @@ export function useSeguimientos() {
     setCreatedOrder((prev) => (prev === "asc" ? "desc" : "asc"));
   }
 
-async function setActive(idxOrId: number) {
-  const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
-  if (!plan) return;
+  async function setActive(idxOrId: number) {
+    const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
+    if (!plan) return;
 
-  setActivePlanId(plan.id);
+    setActivePlanId(plan.id);
 
+    const segs: Seguimiento[] =
+      plan.seguimientos && plan.seguimientos.length
+        ? plan.seguimientos
+        : await api(`/seguimiento/${plan.id}/seguimiento`);
+    
+    const safeSegs = segs.length
+    ? segs
+    : [{
+        ...emptyForm(),
+        plan_id: plan.id,
+        nombre_entidad: plan.nombre_entidad,
+        seguimiento: "Pendiente",
+      }];
+      
+    setChildren(safeSegs);
 
-  const segs: Seguimiento[] =
-    plan.seguimientos && plan.seguimientos.length
-      ? plan.seguimientos
-      : await api(`/seguimiento/${plan.id}/seguimiento`);
-
-  setChildren(segs);
-
-  const first = segs[0];
-  setForm({
-    ...(first ?? emptyForm()),
-    nombre_entidad: plan.nombre_entidad,
-    enlace_entidad: plan.enlace_entidad ?? "",
-    plan_id: plan.id,
-  });
-}
-
+    const first = segs[0];
+    setForm({
+      ...(first ?? emptyForm()),
+      nombre_entidad: plan.nombre_entidad,
+      enlace_entidad:
+        (first && first.enlace_entidad != null)
+          ? first.enlace_entidad
+          : (plan.enlace_entidad ?? ""),
+      plan_id: plan.id,
+    });
+  }
 
   function startNew() {
     setActivePlanId(null);
@@ -174,47 +187,43 @@ async function setActive(idxOrId: number) {
     }));
   }
 
- async function ensurePlanExists(): Promise<number> {
-  if (activePlanId) return activePlanId;
+  async function ensurePlanExists(): Promise<number> {
+    if (activePlanId) return activePlanId;
 
-  const nombre = form.nombre_entidad?.trim();
-  if (!nombre) throw new Error("Ingresa el nombre de la entidad para crear el plan.");
+    const nombre = form.nombre_entidad?.trim();
+    if (!nombre) throw new Error("Ingresa el nombre de la entidad para crear el plan.");
 
-  const planPayload = {
-    nombre_entidad: nombre,
-    enlace_entidad: toNull(form.enlace_entidad),
-    estado: "Pendiente",
-  };
+    const planPayload = {
+      nombre_entidad: nombre,
+      enlace_entidad: toNull(form.enlace_entidad),
+      estado: "Pendiente",
+    };
 
-  // crea el plan (el back ya crea 1 seguimiento inicial embebido)
-  const created: Plan = await api("/seguimiento", {
-    method: "POST",
-    body: JSON.stringify(planPayload),
-  });
+    const created: Plan = await api("/seguimiento", {
+      method: "POST",
+      body: JSON.stringify(planPayload),
+    });
 
-  // agrega a la lista y marca activo
-  setPlans((prev) => [created, ...prev]);
-  setActivePlanId(created.id);
+    setPlans((prev) => [created, ...prev]);
+    setActivePlanId(created.id);
 
-  // usa el seguimiento inicial si vino embebido; si no, refetch
-  const segs = created.seguimientos && created.seguimientos.length
-    ? created.seguimientos
-    : await api(`/seguimiento/${created.id}/seguimiento`);
+    const segs = created.seguimientos && created.seguimientos.length
+      ? created.seguimientos
+      : await api(`/seguimiento/${created.id}/seguimiento`);
 
-  setChildren(segs);
+    setChildren(segs);
 
-  const first = segs[0];
-  setForm({
-    ...(first ?? emptyForm()),
-    plan_id: created.id,
-    nombre_entidad: created.nombre_entidad,
-    enlace_entidad: created.enlace_entidad ?? "",
-  });
+    const first = segs[0];
+    setForm({
+      ...(first ?? emptyForm()),
+      plan_id: created.id,
+      nombre_entidad: created.nombre_entidad,
+      enlace_entidad: created.enlace_entidad ?? "",
+    });
 
-  return created.id;
-}
+    return created.id;
+  }
 
-  // Guardar seguimiento actual (acepta overrides)
   async function saveCurrent(overrides?: Partial<UnifiedForm>) {
     const base = overrides ? { ...form, ...overrides } : form;
     if (!base.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
@@ -232,7 +241,33 @@ async function setActive(idxOrId: number) {
       seguimiento: base.seguimiento ?? "Pendiente",
       enlace_entidad: toNull(base.enlace_entidad),
       ...(isAuditor || isAdmin ? { observacion_calidad: toNull(base.observacion_calidad) } : {}),
+      indicador: toNull(base.indicador), 
     };
+
+    const firstChild = children[0];
+    const looksEmpty =
+      firstChild &&
+      !firstChild.insumo_mejora &&
+      !firstChild.accion_mejora_planteada &&
+      !firstChild.descripcion_actividades &&
+      !firstChild.indicador; // 👈 también vacío
+
+    if (!base.id && firstChild && firstChild.id && looksEmpty) {
+      // en vez de crear uno nuevo, actualizo el que venía vacío
+      const updated = await api(`/seguimiento/${planId}/seguimiento/${firstChild.id}`, {
+        method: "PUT",
+        body: JSON.stringify(childPayload),
+      });
+      const withActor = { ...updated, updated_by_email: actorEmail };
+      setChildren((prev) => prev.map((x) => (x.id === firstChild.id ? withActor : x)));
+      setForm((prev) => ({
+        ...prev,
+        ...withActor,
+        plan_id: planId,
+        nombre_entidad: prev.nombre_entidad,
+      }));
+      return withActor;
+    }
 
     let saved: Seguimiento;
     if (base.id) {
@@ -240,7 +275,6 @@ async function setActive(idxOrId: number) {
         method: "PUT",
         body: JSON.stringify(childPayload),
       });
-      // anota email del actor actual (solo UI)
       const withActor = { ...saved, updated_by_email: actorEmail };
       setChildren(prev => prev.map(x => (x.id === saved.id ? withActor : x)));
       saved = withActor;
@@ -259,12 +293,20 @@ async function setActive(idxOrId: number) {
       ...(overrides ? { ...saved, ...overrides } : saved),
       plan_id: planId,
       nombre_entidad: prev.nombre_entidad,
-      enlace_entidad: prev.enlace_entidad,
+      enlace_entidad: base.enlace_entidad ?? "",
     }));
+    // sincronizar también la lista de planes en memoria
+    setPlans((prev) =>
+      prev.map((p) =>
+        p.id === planId
+          ? { ...p, enlace_entidad: base.enlace_entidad ?? p.enlace_entidad }
+          : p
+      )
+    );
+
     return saved;
   }
 
-  // Crear seguimiento inmediatamente (para "Agregar" instantáneo)
   async function addChildImmediate() {
     const planId = await ensurePlanExists();
     const payload: Seguimiento = { seguimiento: "Pendiente" };
@@ -279,12 +321,10 @@ async function setActive(idxOrId: number) {
       ...created,
       plan_id: planId,
       nombre_entidad: prev.nombre_entidad,
-      enlace_entidad: prev.enlace_entidad,
     }));
     return created;
   }
 
-  // Eliminar seguimiento
   async function removeById(id: number) {
     if (!activePlanId || !id) return;
     await api(`/seguimiento/${activePlanId}/seguimiento/${id}`, { method: "DELETE" });
@@ -293,17 +333,15 @@ async function setActive(idxOrId: number) {
       setForm((prev) => ({
         ...emptyForm(),
         nombre_entidad: prev.nombre_entidad,
-        enlace_entidad: prev.enlace_entidad,
         plan_id: activePlanId!,
       }));
     }
   }
 
-  // 👉 Eliminar plan (padre) y limpiar UI
   async function removePlan(id?: number) {
     const planId = id ?? activePlanId;
     if (!planId) return;
-    await api(`/seguimiento/${planId}`, { method: "DELETE" }); // ajusta endpoint si difiere
+    await api(`/seguimiento/${planId}`, { method: "DELETE" });
     setPlans((prev) => prev.filter((p) => p.id !== planId));
     if (activePlanId === planId) {
       setActivePlanId(null);
@@ -312,18 +350,16 @@ async function setActive(idxOrId: number) {
     }
   }
 
-  // Seleccionar hijo por índice (0-based)
   function setActiveChild(i: number) {
     if (!children.length) return;
     const safe = Math.max(0, Math.min(i, children.length - 1));
     const child = children[safe];
     if (!child) return;
     setForm((prev) => ({
-      ...emptyForm(),                     
-      ...child,                          
+      ...emptyForm(),
+      ...child,
       plan_id: activePlanId ?? child.plan_id,
       nombre_entidad: prev.nombre_entidad,
-      enlace_entidad: prev.enlace_entidad,
       evidencia_cumplimiento: child.evidencia_cumplimiento ?? "",
       observacion_informe_calidad: child.observacion_informe_calidad ?? "",
       observacion_calidad: child.observacion_calidad ?? "",
@@ -334,6 +370,23 @@ async function setActive(idxOrId: number) {
       fecha_inicio: child.fecha_inicio ?? "",
       fecha_final: child.fecha_final ?? "",
       seguimiento: child.seguimiento ?? "Pendiente",
+      indicador: child.indicador ?? "",  // 👈 si el hijo ya tenía indicador lo mostramos
+    }));
+  }
+
+  function importSeguimientoFields(data: {
+    entidad?: string;
+    indicador?: string;
+    accion?: string;
+  }) {
+    setForm((prev) => ({
+      ...prev,
+      
+      nombre_entidad: data.entidad ?? prev.nombre_entidad ?? "",
+      // indicador nuevo
+      indicador: data.indicador ?? prev.indicador ?? "",
+      // acción del archivo → acción de mejora planteada
+      accion_mejora_planteada: data.accion ?? prev.accion_mejora_planteada ?? "",
     }));
   }
 
@@ -367,7 +420,7 @@ async function setActive(idxOrId: number) {
     saveCurrent,
     removeById,
     addChildImmediate,
-    removePlan,         
+    removePlan,
 
     setActiveChild,
     isDuplicableCurrent,
@@ -376,5 +429,7 @@ async function setActive(idxOrId: number) {
     role,
     createdOrder,
     toggleCreatedOrder,
+
+    importSeguimientoFields,
   };
 }

@@ -10,6 +10,7 @@ import { FiSend } from "react-icons/fi";
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
 import PlanesSidebar from "../components/seguimiento/PlanesSidebar";
 import SeguimientosTimeline from "../components/seguimiento/SeguimientosTimeline";
+import ImportSeguimientoFile from "../components/seguimiento/ImportSeguimientoFile";
 
 import {
   exportSeguimientosCSV,
@@ -73,6 +74,7 @@ export default function SeguimientoPage() {
     isDuplicableCurrent, pagerIndex, setActiveChild,
     createdOrder,
     toggleCreatedOrder,
+    importSeguimientoFields,  
   } = useSeguimientos();
 
   const { user } = useAuth();
@@ -209,7 +211,7 @@ export default function SeguimientoPage() {
                   <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
                 </button>
               </div>
-
+              <ImportSeguimientoFile onImport={importSeguimientoFields} />
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}
