@@ -122,7 +122,7 @@ export default function ImportSeguimientoFile({ onImport }: Props) {
     return () => {
       mounted = false;
     };
-  }, [onImport]);
+  }, []);
 
 
   return (
