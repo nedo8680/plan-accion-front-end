@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { api } from "../../lib/api";
 
 type Props = {
   onImport: (data: { entidad?: string; indicador?: string; accion?: string }) => void;
@@ -75,6 +76,54 @@ export default function ImportSeguimientoFile({ onImport }: Props) {
       setTimeout(() => setFileName(""), 4000);
     }
   };
+
+  // ===== Auto-check: consultar /reports/latest una vez al montar
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        //const MOCKAROO_URL = "https://my.api.mockaroo.com/reports.json?key=e7b6daf0";
+        //const resp = await fetch(MOCKAROO_URL, { method: "GET", mode: "cors" });
+        //const res = await resp.json();
+        const res = await api("/reports/latest");
+        if (!mounted || !res) return;
+
+        // Normalizar: la API puede devolver un objeto o un array
+        const obj = Array.isArray(res) ? res[0] : res;
+        if (!obj || typeof obj !== "object") return;
+
+        // Helper: buscar clave ignorando mayúsculas
+        const findKey = (candidates: string[]) => {
+          for (const k of Object.keys(obj)) {
+            const lk = k.toLowerCase();
+            if (candidates.includes(lk)) return (obj as any)[k];
+          }
+          return undefined;
+        };
+
+        const entidad = findKey(["entidad", "nombre_entidad", "nombre"]);
+        const indicador = findKey(["indicador", "indicador_nombre", "nombre_indicador"]);
+        const accion = findKey(["accion", "accion_mejora_planteada", "accion_planteada"]);
+
+        if (entidad || indicador || accion) {
+          onImport({
+            entidad: entidad != null ? String(entidad) : undefined,
+            indicador: indicador != null ? String(indicador) : undefined,
+            accion: accion != null ? String(accion) : undefined,
+          });
+          setFileName("Importado desde API");
+          setTimeout(() => setFileName(""), 4000);
+        }
+      } catch (e) {
+        // Silencioso: no bloquear flujo si backend no responde
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [onImport]);
+
 
   return (
     <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-white/80 p-4">
