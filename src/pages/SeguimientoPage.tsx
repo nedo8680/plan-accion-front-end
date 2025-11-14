@@ -237,7 +237,47 @@ export default function SeguimientoPage() {
                     }}
                     canAdd={canAddChild}
                     canDelete={canDeleteChild}
+                    hideActions  
                   />
+                }
+                planActions={
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await addChildImmediate();
+                        } catch (e: any) {
+                          alert(e?.message ?? "No se pudo crear el seguimiento.");
+                        }
+                      }}
+                      disabled={!canAddChild}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                        canAddChild
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : "bg-emerald-300 cursor-not-allowed"
+                      }`}
+                    >
+                      Agregar seguimiento
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeChildId && confirm("¿Eliminar este seguimiento?")) {
+                          removeById(activeChildId);
+                        }
+                      }}
+                      disabled={!canDeleteChild || !activeChildId}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                        canDeleteChild && activeChildId
+                          ? "bg-amber-600 hover:bg-amber-700"
+                          : "bg-amber-300 cursor-not-allowed"
+                      }`}
+                    >
+                      Borrar seguimiento
+                    </button>
+                  </div>
                 }
                 footer={
                   <div className="flex justify-end">

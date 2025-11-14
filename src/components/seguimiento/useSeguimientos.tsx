@@ -44,9 +44,9 @@ export type Seguimiento = {
   updated_at?: string | null;
   updated_by_email?: string | null;
 
-  // ya los tenías declarados
   entidad?: string | null;
   indicador?: string | null;
+  fecha_reporte?: string | null;
 };
 
 export type UnifiedForm = Seguimiento & {
@@ -68,7 +68,8 @@ export const emptyForm = (): UnifiedForm => ({
   fecha_final: "",
   seguimiento: "Pendiente",
   entidad: "",
-  indicador: "",    // 👈 nuevo campo queda vacío si no importan archivo
+  indicador: "",
+  fecha_reporte: "",
 });
 
 function toNull(v?: string | null) {
@@ -238,6 +239,7 @@ export function useSeguimientos() {
       evidencia_cumplimiento: toNull(base.evidencia_cumplimiento),
       fecha_inicio: toNull(base.fecha_inicio),
       fecha_final: toNull(base.fecha_final),
+      fecha_reporte: toNull(base.fecha_reporte),
       seguimiento: base.seguimiento ?? "Pendiente",
       enlace_entidad: toNull(base.enlace_entidad),
       ...(isAuditor || isAdmin ? { observacion_calidad: toNull(base.observacion_calidad) } : {}),
@@ -369,8 +371,9 @@ export function useSeguimientos() {
       descripcion_actividades: child.descripcion_actividades ?? "",
       fecha_inicio: child.fecha_inicio ?? "",
       fecha_final: child.fecha_final ?? "",
+      fecha_reporte: child.fecha_reporte ?? "",
       seguimiento: child.seguimiento ?? "Pendiente",
-      indicador: child.indicador ?? "",  // 👈 si el hijo ya tenía indicador lo mostramos
+      indicador: child.indicador ?? "", 
     }));
   }
 

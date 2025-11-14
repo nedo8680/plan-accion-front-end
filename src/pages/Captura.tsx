@@ -27,15 +27,15 @@ const DATA: Section[] = [
           {
             title: "",
             items: [
-              { label: "Canal Presencia", url: "https://docs.google.com/spreadsheets/d/12supboT6ycPnV0m9kL4UY--BwpkQu251od8l32xS4DY/edit?usp=sharing" },
+              { label: "Canal Presencial", url: "https://lively-begonia-ccf65e.netlify.app/external/presencial.html" },
             ],
           },
           {
             title: "Canal Virtual",
             items: [
-              { label: "Chat", url: "https://docs.google.com/spreadsheets/d/1aYG3g2yFSQ78nNGRNa_9DpLz4JY5mosbkuKWbhXMUfY/edit?usp=drive_link" },
+              { label: "Chat", url: "https://lively-begonia-ccf65e.netlify.app/external/chat.html" },
               { label: "Chatico", url: "https://v3.proyectamos-odk.com/-/single/1UaQGsPPboVIARqE1DqJdoTyJDVN2Yz?st=6XwDkP3toPy1uO8gyPaPTUCr$k19hbRyDGT2hzTik2zbF62Uhuszq1gudKqBrSU4&d[/data/mod1/gp0/p0]=2&d[/data/mod1/gp0/p00]=10&d[/data/mod1/gp1/p3]=&d[/data/mod1/gp1/p4]=&d[/data/mod1/gp1/p01]=&d[/data/mod1/gp1/c5]=" },
-              { label: "Portales web", url: "https://docs.google.com/spreadsheets/d/1px1pzL3wyb-B2bAfMNgYtaoK7_CLS8dGbjQxlU-ash0/edit?usp=drive_link" },
+              { label: "Portales web", url: "https://lively-begonia-ccf65e.netlify.app/external/portal-web-entidad.html" },
               { label: "Bogotá te escucha", url: "https://v3.proyectamos-odk.com/-/single/1UaQGsPPboVIARqE1DqJdoTyJDVN2Yz?st=6XwDkP3toPy1uO8gyPaPTUCr$k19hbRyDGT2hzTik2zbF62Uhuszq1gudKqBrSU4&d[/data/mod1/gp0/p0]=2&d[/data/mod1/gp0/p00]=9&d[/data/mod1/gp1/p3]=&d[/data/mod1/gp1/p4]=&d[/data/mod1/gp1/p01]=&d[/data/mod1/gp1/c5]=" },
             ],
           },
