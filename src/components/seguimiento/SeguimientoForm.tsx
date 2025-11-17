@@ -213,9 +213,15 @@ export default function SeguimientoForm({
               aria-disabled={!canEditPlanBlock || !!ro["insumo_mejora"]}
             >
               <option value="">-- Selecciona --</option>
-              <option>Índice de Calidad a las Respuestas</option>
-              <option>Peticiones Vencidas en el Sistema</option>
-              <option>Monitoreos</option>
+              <option>Experencia en los canales de atención</option>
+              <option>Satisfacción con el servicio recibido</option>
+              <option>Calidad de las respuestas</option>
+              <option>Digitalización y automatización de trámites</option>
+              <option>Ahorros en los requisitos y tiempos</option>
+              <option>Calidad de las respuestas</option>
+              <option>Evaluación de capacidad instalada</option>
+              <option>Evaluación de habilidades para atención diferencia</option>
+              <option>Estándares y protocolos de atención</option>
             </select>
           </div>
         </div>
