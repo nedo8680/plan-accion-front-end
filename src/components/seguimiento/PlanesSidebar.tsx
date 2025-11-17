@@ -15,6 +15,8 @@ type Props = {
   count?: number;
   createdOrder: "asc" | "desc";
   toggleCreatedOrder: () => void;
+  activeEstado?: string | null;
+  activeChildrenCount?: number;
 };
 
 export default function PlanesSidebar({
@@ -24,6 +26,8 @@ export default function PlanesSidebar({
   count,
   createdOrder,
   toggleCreatedOrder,
+  activeEstado,
+  activeChildrenCount
 }: Props) {
   const [q, setQ] = useState("");
 
@@ -76,32 +80,51 @@ export default function PlanesSidebar({
           </div>
         )}
 
-        <ul className="space-y-1">
-          {filtered.map((p) => {
-            const active = p.id === activePlanId;
-            return (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(p.id)}
-                  className={[
-                    "w-full rounded-lg px-3 py-2 text-left text-sm transition",
-                    active
-                      ? "bg-yellow-400 text-gray-800"
-                      : "hover:bg-gray-100 text-gray-800",
-                  ].join(" ")}
-                >
-                  <div className="font-medium">
-                    {p.nombre_entidad || "—"}
-                  </div>
-                  <div className="text-xs opacity-80">
-                    {p.enlace_entidad ?? ""}
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+<ul className="space-y-1">
+  {filtered.map((p) => {
+    const active = p.id === activePlanId;
+    const estadoPlan = active && activeEstado != null
+      ? activeEstado
+      : p.estado ?? undefined;
+    
+    const isDraftSidebar = estadoPlan === "Borrador";
+
+
+    return (
+      <li key={p.id}>
+        <button
+          type="button"
+          onClick={() => onSelect(p.id)}
+          className={[
+            "w-full rounded-lg px-3 py-2 text-left text-sm transition",
+            active
+              ? "bg-yellow-400 text-gray-800"
+              : "hover:bg-gray-100 text-gray-800",
+          ].join(" ")}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="font-medium">
+                {p.nombre_entidad || "—"}
+              </div>
+              <div className="text-xs opacity-80">
+                {p.enlace_entidad ?? ""}
+              </div>
+            </div>
+
+           {!active && isDraftSidebar && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                {estadoPlan}
+              </span>
+            )}
+          </div>
+        </button>
+      </li>
+    );
+  })}
+</ul>
+
+
       </div>
     </aside>
   );
