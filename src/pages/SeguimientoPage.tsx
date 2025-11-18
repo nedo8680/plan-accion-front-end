@@ -323,9 +323,7 @@ export default function SeguimientoPage() {
                   <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
                 </button>
               </div>
-              {estadoSeguimientoActual === "Pendiente" && (
-                <ImportSeguimientoFile onImport={importSeguimientoFields} />
-              )}
+
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}

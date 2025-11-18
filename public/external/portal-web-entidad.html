@@ -126,7 +126,7 @@
   <header class="page-header">
     <img src="https://lively-begonia-ccf65e.netlify.app/images/logo-blanco-bta.png"
          alt="Alcaldía Mayor de Bogotá">
-    <h1>PARAMETRIZACIÓN URLS VIRTUAL - TRÁMITES</h1>
+    <h1>PARAMETRIZACIÓN URLS VIRTUAL - ESPECIFICO POR ENTIDAD</h1>
   </header>
 
   <!-- FILTROS -->
@@ -1604,97 +1604,184 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('tablaTramites');
-    if (!table) return; // por si este bloque está en otra página sin la tabla
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.getElementById('tablaTramites');
+  if (!table) return;
 
-    const tbody = table.tBodies[0];
-    const rows  = Array.from(tbody.rows);
+  const tbody = table.tBodies[0];
+  const rows  = Array.from(tbody.rows);
 
-    const entidadSelect = document.getElementById('filterEntidadTram');
-    const sectorSelect  = document.getElementById('filterSectorTram');
-    const searchInput   = document.getElementById('searchInputTram');
-    const noResultsMsg  = document.getElementById('noResultsTram');
+  const searchInput = document.getElementById('searchInputTram');
+  const entidadSel  = document.getElementById('filterEntidadTram');
+  const sectorSel   = document.getElementById('filterSectorTram');
 
-    const entidadesSet = new Set();
-    const sectoresSet  = new Set();
+  const entidadesSet = new Set();
+  const sectoresSet  = new Set();
 
-    // Recorrer filas: poblar sets y transformar URLs en enlaces
-    rows.forEach(row => {
-      // columnas: 0=entidad, 1=sector, 2=id_tramite, 3=tramite, 4=Link de encuesta
-      const entidad = row.cells[0]?.textContent.trim() || '';
-      const sector  = row.cells[1]?.textContent.trim() || '';
+  // sector -> entidades
+  const sectorEntidadesMap = new Map();
+  // entidad -> sector
+  const entidadSectorMap   = new Map();
 
-      if (entidad) entidadesSet.add(entidad);
-      if (sector)  sectoresSet.add(sector);
+  // 🔹 Función para ignorar tildes y mayúsculas
+  function normalizar(str) {
+    return str
+      .normalize('NFD')                 // separa letra y tilde
+      .replace(/[\u0300-\u036f]/g, '')  // elimina las tildes
+      .toLowerCase();                   // a minúsculas
+  }
 
-      const linkCell = row.cells[4];
-      if (linkCell) {
-        const url = linkCell.textContent.trim();
-        if (url && !linkCell.querySelector('a')) {
-          const a = document.createElement('a');
-          a.href = url;
-          a.target = '_blank';
-          a.rel = 'noopener';
-          a.textContent = 'Ir al formulario';
-          linkCell.textContent = '';
-          linkCell.appendChild(a);
-        }
-      }
+  // Recorremos filas: llenamos sets/mapas y convertimos URL en enlace
+  rows.forEach(row => {
+    const entidad   = row.cells[0].textContent.trim();
+    const sector    = row.cells[1].textContent.trim();
+    const linkCell  = row.cells[4];
+
+    entidadesSet.add(entidad);
+    sectoresSet.add(sector);
+
+    // Mapas de relación
+    entidadSectorMap.set(entidad, sector);
+
+    if (!sectorEntidadesMap.has(sector)) {
+      sectorEntidadesMap.set(sector, new Set());
+    }
+    sectorEntidadesMap.get(sector).add(entidad);
+
+    // Link de encuesta -> <a>
+    const url = linkCell.textContent.trim();
+    if (url && !linkCell.querySelector('a')) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = 'Responder encuesta';
+      linkCell.textContent = '';
+      linkCell.appendChild(a);
+    }
+  });
+
+  const todasEntidades = Array.from(entidadesSet).sort((a, b) => a.localeCompare(b, 'es'));
+  const todosSectores  = Array.from(sectoresSet).sort((a, b) => a.localeCompare(b, 'es'));
+
+  // Helpers para rellenar selects
+  function rellenarEntidades(lista, seleccionPreferida) {
+    const anterior = entidadSel.value;
+    entidadSel.innerHTML = '';
+
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = 'Todas las entidades';
+    entidadSel.appendChild(optAll);
+
+    lista.forEach(ent => {
+      const opt = document.createElement('option');
+      opt.value = ent;
+      opt.textContent = ent;
+      entidadSel.appendChild(opt);
     });
 
-    // Selector de ENTIDAD
-    Array.from(entidadesSet)
-      .sort((a, b) => a.localeCompare(b, 'es'))
-      .forEach(ent => {
-        const opt = document.createElement('option');
-        opt.value = ent;
-        opt.textContent = ent;
-        entidadSelect.appendChild(opt);
-      });
+    const preferida = seleccionPreferida || anterior;
+    if (preferida && lista.includes(preferida)) {
+      entidadSel.value = preferida;
+    } else {
+      entidadSel.value = '';
+    }
+  }
 
-    // Selector de SECTOR
-    Array.from(sectoresSet)
-      .sort((a, b) => a.localeCompare(b, 'es'))
-      .forEach(sec => {
-        const opt = document.createElement('option');
-        opt.value = sec;
-        opt.textContent = sec;
-        sectorSelect.appendChild(opt);
-      });
+  function rellenarSectores(lista, seleccionPreferida) {
+    const anterior = sectorSel.value;
+    sectorSel.innerHTML = '';
 
-    // Filtros combinados
-    function aplicarFiltrosTram() {
-      const texto   = searchInput.value.trim().toLowerCase();
-      const entSel  = entidadSelect.value;
-      const secSel  = sectorSelect.value;
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = 'Todos los sectores';
+    sectorSel.appendChild(optAll);
 
-      let hayResultados = false;
+    lista.forEach(sec => {
+      const opt = document.createElement('option');
+      opt.value = sec;
+      opt.textContent = sec;
+      sectorSel.appendChild(opt);
+    });
 
-      rows.forEach(row => {
-        const entidad = row.cells[0]?.textContent.trim() || '';
-        const sector  = row.cells[1]?.textContent.trim() || '';
+    const preferido = seleccionPreferida || anterior;
+    if (preferido && lista.includes(preferido)) {
+      sectorSel.value = preferido;
+    } else {
+      sectorSel.value = '';
+    }
+  }
 
-        // para el buscador usamos TODO el texto de la fila (entidad, sector, id, trámite…)
-        const textoFila = row.textContent.toLowerCase();
+  // Carga inicial
+  rellenarEntidades(todasEntidades);
+  rellenarSectores(todosSectores);
 
-        const coincideEntidad = !entSel || entidad === entSel;
-        const coincideSector  = !secSel || sector === secSel;
-        const coincideTexto   = !texto || textoFila.includes(texto);
+  // 🔍 Aplicar filtros combinados (texto + entidad + sector)
+  function aplicarFiltros() {
+    const texto   = normalizar(searchInput.value.trim());
+    const entSel  = entidadSel.value;
+    const secSel  = sectorSel.value;
 
-        if (coincideEntidad && coincideSector && coincideTexto) {
-          row.style.display = '';
-          hayResultados = true;
-        } else {
-          row.style.display = 'none';
-        }
-      });
+    rows.forEach(row => {
+      const entidad   = row.cells[0].textContent.trim();
+      const sector    = row.cells[1].textContent.trim();
+      const idTram    = row.cells[2].textContent.trim();
+      const tramite   = row.cells[3].textContent.trim();
 
-      noResultsMsg.style.display = hayResultados ? 'none' : 'block';
+      const textoFila = normalizar(
+        entidad + ' ' + sector + ' ' + idTram + ' ' + tramite
+      );
+
+      const coincideEntidad = !entSel || entidad === entSel;
+      const coincideSector  = !secSel || sector  === secSel;
+      const coincideTexto   = !texto || textoFila.includes(texto);
+
+      if (coincideEntidad && coincideSector && coincideTexto) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  // ENTIDAD → restringe SECTORES
+  entidadSel.addEventListener('change', function () {
+    const entSelActual = entidadSel.value;
+    let sectoresValidos;
+
+    if (!entSelActual) {
+      // Sin entidad -> todos los sectores
+      sectoresValidos = todosSectores;
+      rellenarSectores(sectoresValidos);
+    } else {
+      const sectorDeEntidad = entidadSectorMap.get(entSelActual);
+      sectoresValidos = sectorDeEntidad ? [sectorDeEntidad] : [];
+      rellenarSectores(sectoresValidos, sectorDeEntidad);
     }
 
-    searchInput.addEventListener('input', aplicarFiltrosTram);
-    entidadSelect.addEventListener('change', aplicarFiltrosTram);
-    sectorSelect.addEventListener('change', aplicarFiltrosTram);
+    aplicarFiltros();
   });
+
+  // SECTOR → restringe ENTIDADES
+  sectorSel.addEventListener('change', function () {
+    const secSelActual = sectorSel.value;
+    let entidadesValidas;
+
+    if (!secSelActual) {
+      // Sin sector -> todas las entidades
+      entidadesValidas = todasEntidades;
+    } else {
+      entidadesValidas = Array.from(sectorEntidadesMap.get(secSelActual) || []);
+      entidadesValidas.sort((a, b) => a.localeCompare(b, 'es'));
+    }
+
+    rellenarEntidades(entidadesValidas);
+    aplicarFiltros();
+  });
+
+  // Buscador en vivo 
+  searchInput.addEventListener('input', aplicarFiltros);
+});
 </script>
+

@@ -146,7 +146,7 @@
   <header class="page-header">
     <img src="https://lively-begonia-ccf65e.netlify.app/images/logo-blanco-bta.png"
          alt="Alcaldía Mayor de Bogotá">
-    <h1>PARAMETRIZACIÓN URLS VIRTUAL - PUNTOS</h1>
+    <h1>PARAMETRIZACIÓN URLS PRESENCIAL - SATISFACCIÓN Y EXPERIENCIA CIUDADANA</h1>
   </header>
 
   <!-- FILTROS -->
@@ -1545,97 +1545,178 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('tablaPuntos');
-    if (!table) return;
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.getElementById('tablaPuntos');
+  if (!table) return;
 
-    const tbody = table.tBodies[0];
-    const rows  = Array.from(tbody.rows);
+  const tbody = table.tBodies[0];
+  const rows  = Array.from(tbody.rows);
 
-    const entidadSelect = document.getElementById('filterEntidadPuntos');
-    const puntoSelect   = document.getElementById('filterPunto');
-    const searchInput   = document.getElementById('searchInputPuntos');
-    const noResultsMsg  = document.getElementById('noResultsPuntos');
+  const searchInput = document.getElementById('searchInputPuntos');
+  const entidadSel  = document.getElementById('filterEntidadPuntos');
+  const puntoSel    = document.getElementById('filterPunto');
 
-    const entidadesSet = new Set();
-    const puntosSet    = new Set();
+  const entidadesSet = new Set();
+  const puntosSet    = new Set();
 
-    // Recorrer filas: poblar filtros y convertir URL en enlace
-    rows.forEach(row => {
-      // columnas: 0=entidad, 1=punto, 2=dirección, 3=Link
-      const entidad = row.cells[0]?.textContent.trim() || '';
-      const punto   = row.cells[1]?.textContent.trim() || '';
+  const entidadPuntosMap  = new Map(); // entidad -> Set(puntos)
+  const puntoEntidadesMap = new Map(); // punto   -> Set(entidades)
 
-      if (entidad) entidadesSet.add(entidad);
-      if (punto)   puntosSet.add(punto);
+  // 🔹 Función para ignorar tildes y mayúsculas
+  function normalizar(str) {
+    return str
+      .normalize('NFD')                 // separa letras y tildes
+      .replace(/[\u0300-\u036f]/g, '')  // elimina las tildes
+      .toLowerCase();                   // pasa a minúsculas
+  }
 
-      const linkCell = row.cells[3];
-      if (linkCell) {
-        const url = linkCell.textContent.trim();
-        if (url && !linkCell.querySelector('a')) {
-          const a = document.createElement('a');
-          a.href = url;
-          a.target = '_blank';
-          a.rel = 'noopener';
-          a.textContent = 'Ir al formulario';
-          linkCell.textContent = '';
-          linkCell.appendChild(a);
-        }
-      }
+  // Recorremos filas: llenamos sets / mapas y convertimos URL a enlace
+  rows.forEach(row => {
+    const entidad   = row.cells[0].textContent.trim();
+    const punto     = row.cells[1].textContent.trim();
+    const linkCell  = row.cells[3];
+
+    entidadesSet.add(entidad);
+    puntosSet.add(punto);
+
+    // entidad -> puntos
+    if (!entidadPuntosMap.has(entidad)) {
+      entidadPuntosMap.set(entidad, new Set());
+    }
+    entidadPuntosMap.get(entidad).add(punto);
+
+    // punto -> entidades
+    if (!puntoEntidadesMap.has(punto)) {
+      puntoEntidadesMap.set(punto, new Set());
+    }
+    puntoEntidadesMap.get(punto).add(entidad);
+
+    // Convertir URL en enlace
+    const url = linkCell.textContent.trim();
+    if (url && !linkCell.querySelector('a')) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = 'Responder encuesta';
+      linkCell.textContent = '';
+      linkCell.appendChild(a);
+    }
+  });
+
+  const todasEntidades = Array.from(entidadesSet).sort((a, b) => a.localeCompare(b, 'es'));
+  const todosPuntos    = Array.from(puntosSet).sort((a, b) => a.localeCompare(b, 'es'));
+
+  // Helpers para rellenar selects
+  function rellenarEntidades(lista, seleccionPreferida) {
+    const anterior = entidadSel.value;
+    entidadSel.innerHTML = '';
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = 'Todas las entidades';
+    entidadSel.appendChild(optAll);
+
+    lista.forEach(ent => {
+      const opt = document.createElement('option');
+      opt.value = ent;
+      opt.textContent = ent;
+      entidadSel.appendChild(opt);
     });
 
-    // Opciones de ENTIDAD
-    Array.from(entidadesSet)
-      .sort((a, b) => a.localeCompare(b, 'es'))
-      .forEach(ent => {
-        const opt = document.createElement('option');
-        opt.value = ent;
-        opt.textContent = ent;
-        entidadSelect.appendChild(opt);
-      });
+    const preferida = seleccionPreferida || anterior;
+    if (preferida && lista.includes(preferida)) {
+      entidadSel.value = preferida;
+    } else {
+      entidadSel.value = '';
+    }
+  }
 
-    // Opciones de PUNTO
-    Array.from(puntosSet)
-      .sort((a, b) => a.localeCompare(b, 'es'))
-      .forEach(pun => {
-        const opt = document.createElement('option');
-        opt.value = pun;
-        opt.textContent = pun;
-        puntoSelect.appendChild(opt);
-      });
+  function rellenarPuntos(lista, seleccionPreferida) {
+    const anterior = puntoSel.value;
+    puntoSel.innerHTML = '';
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = 'Todos los puntos';
+    puntoSel.appendChild(optAll);
 
-    // Filtros combinados
-    function aplicarFiltrosPuntos() {
-      const texto  = searchInput.value.trim().toLowerCase();
-      const entSel = entidadSelect.value;
-      const ptoSel = puntoSelect.value;
+    lista.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      puntoSel.appendChild(opt);
+    });
 
-      let hayResultados = false;
+    const preferida = seleccionPreferida || anterior;
+    if (preferida && lista.includes(preferida)) {
+      puntoSel.value = preferida;
+    } else {
+      puntoSel.value = '';
+    }
+  }
 
-      rows.forEach(row => {
-        const entidad = row.cells[0]?.textContent.trim() || '';
-        const punto   = row.cells[1]?.textContent.trim() || '';
+  // Carga inicial
+  rellenarEntidades(todasEntidades);
+  rellenarPuntos(todosPuntos);
 
-        // Para el buscador usamos todo el texto de la fila
-        const textoFila = row.textContent.toLowerCase();
+  // 🔍 Aplicar filtros combinados (texto + entidad + punto)
+  function aplicarFiltros() {
+    const texto     = normalizar(searchInput.value.trim());
+    const entSel    = entidadSel.value;
+    const puntoSelV = puntoSel.value;
 
-        const coincideEntidad = !entSel || entidad === entSel;
-        const coincidePunto   = !ptoSel || punto === ptoSel;
-        const coincideTexto   = !texto || textoFila.includes(texto);
+    rows.forEach(row => {
+      const entidad   = row.cells[0].textContent.trim();
+      const punto     = row.cells[1].textContent.trim();
+      const direccion = row.cells[2].textContent.trim();
 
-        if (coincideEntidad && coincidePunto && coincideTexto) {
-          row.style.display = '';
-          hayResultados = true;
-        } else {
-          row.style.display = 'none';
-        }
-      });
+      // Texto unificado de la fila, normalizado (sin tildes)
+      const textoFila = normalizar(entidad + ' ' + punto + ' ' + direccion);
 
-      noResultsMsg.style.display = hayResultados ? 'none' : 'block';
+      const coincideEntidad = !entSel    || entidad === entSel;
+      const coincidePunto   = !puntoSelV || punto   === puntoSelV;
+      const coincideTexto   = !texto     || textoFila.includes(texto);
+
+      if (coincideEntidad && coincidePunto && coincideTexto) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  // ENTIDAD → restringe puntos
+  entidadSel.addEventListener('change', function () {
+    const entSelActual = entidadSel.value;
+    let puntosValidos;
+
+    if (!entSelActual) {
+      puntosValidos = todosPuntos;
+    } else {
+      puntosValidos = Array.from(entidadPuntosMap.get(entSelActual) || []);
+      puntosValidos.sort((a, b) => a.localeCompare(b, 'es'));
     }
 
-    searchInput.addEventListener('input', aplicarFiltrosPuntos);
-    entidadSelect.addEventListener('change', aplicarFiltrosPuntos);
-    puntoSelect.addEventListener('change', aplicarFiltrosPuntos);
+    rellenarPuntos(puntosValidos);
+    aplicarFiltros();
   });
+
+  // PUNTO → restringe entidades
+  puntoSel.addEventListener('change', function () {
+    const puntoSelActual = puntoSel.value;
+    let entidadesValidas;
+
+    if (!puntoSelActual) {
+      entidadesValidas = todasEntidades;
+    } else {
+      entidadesValidas = Array.from(puntoEntidadesMap.get(puntoSelActual) || []);
+      entidadesValidas.sort((a, b) => a.localeCompare(b, 'es'));
+    }
+
+    rellenarEntidades(entidadesValidas);
+    aplicarFiltros();
+  });
+
+  // Buscador en vivo 
+  searchInput.addEventListener('input', aplicarFiltros);
+});
 </script>

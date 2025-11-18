@@ -89,6 +89,9 @@ export default function SeguimientoForm({
 
   // Solo consideramos verdaderamente “Borrador” cuando aún no hay seguimiento creado
   const isDraft = estadoPlan === "Borrador" && !hasSeguimientoActual;
+  
+  const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraft;
+
   // Bloque de seguimiento solo si hay plan y NO está en borrador
   const isSeguimientoVisible = isSeguimientoBase && !isDraft;
 
@@ -411,30 +414,29 @@ export default function SeguimientoForm({
           </div>
         </div>
 
-        {/* Observación del equipo de la DDCS (desde seguimientos, solo lectura) */}
+        {/* Observación del equipo de la DDCS (PLAN) */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
             Observación del equipo de la DDCS
           </label>
           <div className="md:col-span-2">
             <textarea
-              className="w-full min-h-24 bg-gray-50"
+              className={`w-full min-h-24 ${
+                !canEditObsCalidadPlan || !!ro["observacion_calidad"]
+                  ? "bg-gray-50 opacity-60"
+                  : ""
+              }`}
               value={value.observacion_calidad ?? ""}
-              readOnly
-              disabled
-              aria-disabled
-              maxLength={MAX_OBS_DDCS}
+              onChange={(e) => onChange("observacion_calidad", e.target.value)}
+              disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
+              aria-disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
             />
-            <div className="mt-1 flex justify-between text-xs text-gray-500">
-              <span>
-                Esta observación la registra el equipo de la DDCS en los seguimientos.
-                </span>
-                <span>
-                  {(value.observacion_calidad?.length ?? 0)}/{MAX_OBS_DDCS} caracteres
-                  </span>
-                  </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Esta observación la registra el equipo de la DDCS después de enviar el registro.
+            </p>
           </div>
         </div>
+
       </fieldset>
 
       {planActions && (
