@@ -74,7 +74,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="mt-3 text-xs text-gray-500">
-          Demo: admin@demo.com - admin123 / usuario@demo.com - usuario123 / profesionalddcs@demo.com  - ProfDDCS123
+          Demo: admin@demo.com - admin123 / cvp@mail.com - qwerty123 / profesionalddcs@demo.com  - ProfDDCS123
         </div>
       </div>
     </div>

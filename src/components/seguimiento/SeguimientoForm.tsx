@@ -8,6 +8,11 @@ type InsumoMejora =
   | "Índice de Calidad a las Respuestas"
   | "Peticiones Vencidas en el Sistema"
   | "";
+type IndicadorApiRow = {
+  entidad?: string;
+  indicador?: string;
+  accion?: string;
+};
 
 type UnifiedFormValue = {
   nombre_entidad: string;
@@ -44,11 +49,11 @@ type Props = {
   header?: React.ReactNode;
   focusRef?: React.RefObject<HTMLInputElement>;
   footer?: React.ReactNode;
+  indicadoresApi?: IndicadorApiRow[];
   planActions?: React.ReactNode;
-
-  // para que el padre dispare "Nuevo registro" a partir de la acción
   onRequestNewPlanFromAction?: (accion: string) => void;
 };
+
 
 export default function SeguimientoForm({
   value,
@@ -58,6 +63,7 @@ export default function SeguimientoForm({
   header,
   focusRef,
   footer,
+  indicadoresApi,
   planActions,
   onRequestNewPlanFromAction,
 }: Props) {
@@ -89,6 +95,9 @@ export default function SeguimientoForm({
 
   // Solo consideramos verdaderamente “Borrador” cuando aún no hay seguimiento creado
   const isDraft = estadoPlan === "Borrador" && !hasSeguimientoActual;
+  
+  const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraft;
+
   // Bloque de seguimiento solo si hay plan y NO está en borrador
   const isSeguimientoVisible = isSeguimientoBase && !isDraft;
 
@@ -110,6 +119,30 @@ export default function SeguimientoForm({
   // Estado liviano para feedback de upload
   const [eviUploading, setEviUploading] = React.useState(false);
   const [eviError, setEviError] = React.useState<string | null>(null);
+  const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
+
+  const handleIndicadorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const indicadorValue = e.target.value;
+
+    // Actualizar el campo indicador en el form
+    onChange("indicador" as any, indicadorValue);
+
+    // Buscar la fila correspondiente
+    const row = indicadoresApi?.find((r) => r.indicador === indicadorValue);
+
+    if (row) {
+      // Rellenar automáticamente la acción de mejora
+      if (row.accion) {
+        onChange("observacion_informe_calidad", row.accion);
+      }
+
+      // Opcional: también actualizar nombre_entidad
+      if (row.entidad) {
+        onChange("nombre_entidad", row.entidad);
+      }
+    }
+  };
+
 
   const todayStr = React.useMemo(
     () => new Date().toISOString().slice(0, 10),
@@ -203,21 +236,40 @@ export default function SeguimientoForm({
           )}
         </legend>
 
-        {/* Indicador */}
+        {/* Header interno (tabs + agregar/borrar seguimiento) */}
+        {header && <div className="mb-4">{header}</div>}
+
+        
+        {/* Indicador  */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
             Indicador
           </label>
           <div className="md:col-span-2">
-            <input
-              className="w-full"
-              value={value.indicador ?? ""}
-              onChange={(e) => onChange("indicador", e.target.value)}
-              disabled={!canEditPlanBlock || !!ro["indicador"]}
-              aria-disabled={!canEditPlanBlock || !!ro["indicador"]}
-            />
+            {hasIndicadoresApi ? (
+              <select
+                className="w-full"
+                value={(value as any).indicador ?? ""}
+                onChange={handleIndicadorSelect}
+              >
+                <option value="">-- Selecciona un indicador --</option>
+                {indicadoresApi!.map((row, idx) => (
+                  <option key={idx} value={row.indicador ?? ""}>
+                    {row.indicador ?? "(sin indicador)"}{" "}
+                    {row.entidad ? `– ${row.entidad}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="w-full"
+                value={(value as any).indicador ?? ""}
+                onChange={(e) => onChange("indicador" as any, e.target.value)}
+              />
+            )}
           </div>
         </div>
+
 
         {/* Insumo de mejora */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
@@ -411,30 +463,29 @@ export default function SeguimientoForm({
           </div>
         </div>
 
-        {/* Observación del equipo de la DDCS (desde seguimientos, solo lectura) */}
+        {/* Observación del equipo de la DDCS (PLAN) */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
             Observación del equipo de la DDCS
           </label>
           <div className="md:col-span-2">
             <textarea
-              className="w-full min-h-24 bg-gray-50"
+              className={`w-full min-h-24 ${
+                !canEditObsCalidadPlan || !!ro["observacion_calidad"]
+                  ? "bg-gray-50 opacity-60"
+                  : ""
+              }`}
               value={value.observacion_calidad ?? ""}
-              readOnly
-              disabled
-              aria-disabled
-              maxLength={MAX_OBS_DDCS}
+              onChange={(e) => onChange("observacion_calidad", e.target.value)}
+              disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
+              aria-disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
             />
-            <div className="mt-1 flex justify-between text-xs text-gray-500">
-              <span>
-                Esta observación la registra el equipo de la DDCS en los seguimientos.
-                </span>
-                <span>
-                  {(value.observacion_calidad?.length ?? 0)}/{MAX_OBS_DDCS} caracteres
-                  </span>
-                  </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Esta observación la registra el equipo de la DDCS después de enviar el registro.
+            </p>
           </div>
         </div>
+
       </fieldset>
 
       {planActions && (
