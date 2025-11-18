@@ -10,7 +10,7 @@ import { FiSend } from "react-icons/fi";
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
 import PlanesSidebar from "../components/seguimiento/PlanesSidebar";
 import SeguimientosTimeline from "../components/seguimiento/SeguimientosTimeline";
-import ImportSeguimientoFile from "../components/seguimiento/ImportSeguimientoFile";
+//import ImportSeguimientoFile from "../components/seguimiento/ImportSeguimientoFile";
 
 import {
   exportSeguimientosCSV,
