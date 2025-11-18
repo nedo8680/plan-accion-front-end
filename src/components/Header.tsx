@@ -31,7 +31,7 @@ export default function Header() {
     return u?.email ?? u?.sub ?? "";
   }, [user]);
   const displayRole = user?.role as string | undefined;
-
+  const displayEntidad= (user as any)?.entidad as string | undefined;
   return (
     <header className="sticky top-0 z-50 isolate w-full bg-[#D32D37] shadow-md text-base">
       <div className="mx-auto w-full max-w-6xl px-4">
@@ -73,7 +73,7 @@ export default function Header() {
             {user && (
               <>
                 <span className="hidden sm:inline text-sm">
-                  {displayEmail} ({ displayRole === "auditor" ? "Evaluador" : displayRole})
+                  {displayEntidad} ({ displayRole === "auditor" ? "Evaluador" : displayRole})
                 </span>
 
                 {/* Gestión de usuarios (solo admin) */}

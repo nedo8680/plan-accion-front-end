@@ -68,6 +68,9 @@ export default function SeguimientoForm({
   const isEntidad = role === "entidad";
   const isAuditor = role === "auditor";
 
+  const anyUser = user as any;
+  const entidadFromUser = (anyUser?.entidad || "").trim();
+
   const MAX_UPLOAD_MB = 5;
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
@@ -96,7 +99,7 @@ export default function SeguimientoForm({
 
   // Bloque Plan: editable mientras el plan esté en Borrador
   const canEditPlanBlock = canEditCamposEntidad && isDraft;
-  const canEditNombreEntidad = canEditCamposEntidad && isDraft;
+  const canEditNombreEntidad = false; 
   const canEditEnlaceEntidad = canEditCamposEntidad && isDraft;
 
   // Estado liviano para feedback de upload
@@ -107,6 +110,16 @@ export default function SeguimientoForm({
     () => new Date().toISOString().slice(0, 10),
     []
   );
+  
+  // nombre_entidad desde el usuario cuando el rol es entidad
+  React.useEffect(() => {
+    if (!entidadFromUser) return;
+
+    const current = (value.nombre_entidad || "").trim();
+    if (!current) {
+      onChange("nombre_entidad", entidadFromUser);
+    }
+  }, [entidadFromUser, value.nombre_entidad, onChange]);
 
   // Fecha de reporte (solo cuando el bloque seguimiento está visible)
   React.useEffect(() => {
@@ -144,14 +157,16 @@ export default function SeguimientoForm({
           Nombre Entidad
         </label>
         <div className="md:col-span-2">
-          <input
+            <input
             ref={focusRef}
-            className="w-full"
+            className="w-full bg-gray-50 text-gray-700 cursor-not-allowed"
             value={value.nombre_entidad || ""}
-            onChange={(e) => onChange("nombre_entidad", e.target.value)}
+            onChange={() => {
+            }}
             required
-            disabled={!canEditNombreEntidad || !!ro["nombre_entidad"]}
-            aria-disabled={!canEditNombreEntidad || !!ro["nombre_entidad"]}
+            disabled
+            readOnly
+            aria-disabled
           />
         </div>
       </div>
@@ -275,7 +290,7 @@ export default function SeguimientoForm({
           <div className="md:col-span-2 space-y-2">
             <input
               className="w-full"
-              placeholder="Escribe la acción de mejora"
+              placeholder="Escribe la(s) acción(es) de mejora, separadas por ',' ';' '.'"
               value={value.accion_mejora_planteada ?? ""}
               onChange={(e) => onChange("accion_mejora_planteada", e.target.value)}
               disabled={!canEditPlanBlock || !!ro["accion_mejora_planteada"]}
@@ -286,7 +301,7 @@ export default function SeguimientoForm({
               <div className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <p className="font-semibold">Hemos detectado más de una posible acción.</p>
                 <p>
-                  Para un seguimiento más claro, considera registrar cada acción como un plan separado antes de enviar.
+                  Considera registrar cada acción como un plan separado antes de enviar.
                 </p>
               </div>
             )}
@@ -302,7 +317,7 @@ export default function SeguimientoForm({
                   className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
                 >
                   <span className="text-base leading-none">＋</span>
-                  <span>Crear nuevo registro a partir de esta acción</span>
+                  <span>Crear otra acción de mejora</span>
                 </button>
               )}
           </div>

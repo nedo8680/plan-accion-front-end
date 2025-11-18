@@ -31,6 +31,7 @@ export default function AdminUsers() {
   const [role, setRole] = React.useState<UserRole>("entidad");
   const [entPerm, setEntPerm] = React.useState<EntPerm>("captura_reportes");
   const [submitting, setSubmitting] = React.useState(false);
+  const [entidad, setEntidad] = React.useState("");
 
   // Reset password
   const [resetId, setResetId] = React.useState<number | null>(null);
@@ -81,7 +82,6 @@ export default function AdminUsers() {
     );
   }
 
-  // Crear usuario
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -99,6 +99,7 @@ export default function AdminUsers() {
         email,
         password,
         role,
+        entidad: entidad.trim(),   
         ...(role === "entidad" ? { entidad_perm: entPerm } : {}),
       });
       setEmail("");
@@ -264,6 +265,19 @@ export default function AdminUsers() {
                 required
               />
             </div>
+
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Entidad/Usuario</label>
+              <input
+                type="text"
+                value={entidad}
+                onChange={(e) => setEntidad(e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+                placeholder="Nombre de la entidad/usuario"
+                required
+              />
+            </div>
+
             <div className="sm:col-span-1">
               <label className="mb-1 block text-sm font-medium text-gray-700">Contraseña</label>
               <div className="relative">

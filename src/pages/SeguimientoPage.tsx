@@ -121,7 +121,6 @@ export default function SeguimientoPage() {
 
       const currentAny = current as any;
       const isDraftPlan = currentAny?.estado === "Borrador";
-      console.log("estado:", currentAny, isDraftPlan, currentAny.estado, "isEntidad:", isEntidad );
 
       if (isEntidad || isAdmin ) {
         const overrides: any = {
@@ -232,18 +231,21 @@ export default function SeguimientoPage() {
           <h1 className="text-2xl font-semibold">Seguimiento</h1>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              className="btn-outline"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800  ${
+                !isAuditor ? "bg-white hover:bg-gray-100" : "bg-gray-400 text-white cursor-not-allowed"
+              }`}
               onClick={() => startNew()}
+              disabled={isAuditor}
             >
               Nuevo registro
             </button>
             {/* Borrar plan */}
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                canDeletePlan ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
+                !isAuditor ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
               }`}
               type="button"
-              disabled={!canDeletePlan}
+              disabled={isAuditor}
               onClick={() => {
                 if (!activePlanId) return;
                 if (confirm("¿Eliminar este plan y todos sus seguimientos?")) removePlan(activePlanId);
