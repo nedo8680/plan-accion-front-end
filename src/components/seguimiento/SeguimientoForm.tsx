@@ -71,9 +71,10 @@ export default function SeguimientoForm({
   const anyUser = user as any;
   const entidadFromUser = (anyUser?.entidad || "").trim();
 
-  const MAX_DESC_ACTIVIDADES = 2000;
-  const MAX_PLAN_EVIDENCIA = 2000;
-  const MAX_OBS_DDCS = 1000;
+  const MAX_DESC_ACTIVIDADES = 300;
+  const MAX_PLAN_EVIDENCIA = 300;
+  const MAX_OBS_DDCS = 300;
+  const MAX_OBS_DDCS_SEG = 300;
 
   const MAX_UPLOAD_MB = 5;
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -363,10 +364,16 @@ export default function SeguimientoForm({
               }
               disabled={!canEditPlanBlock || !!ro["plan_evidencia_cumplimiento"]}
               aria-disabled={!canEditPlanBlock || !!ro["plan_evidencia_cumplimiento"]}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Describe brevemente las evidencias de cumplimiento previstas para esta acción.
-            </p>
+              maxLength={MAX_PLAN_EVIDENCIA}
+    />
+    <div className="mt-1 flex justify-between text-xs text-gray-500">
+      <span>
+        Describe brevemente las evidencias de cumplimiento previstas para esta acción.
+      </span>
+      <span>
+        {(value.plan_evidencia_cumplimiento?.length ?? 0)}/{MAX_PLAN_EVIDENCIA} caracteres
+      </span>
+    </div>
           </div>
         </div>
 
@@ -416,10 +423,16 @@ export default function SeguimientoForm({
               readOnly
               disabled
               aria-disabled
+              maxLength={MAX_OBS_DDCS}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Esta observación la registra el equipo de la DDCS en los seguimientos.
-            </p>
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>
+                Esta observación la registra el equipo de la DDCS en los seguimientos.
+                </span>
+                <span>
+                  {(value.observacion_calidad?.length ?? 0)}/{MAX_OBS_DDCS} caracteres
+                  </span>
+                  </div>
           </div>
         </div>
       </fieldset>
@@ -522,7 +535,11 @@ export default function SeguimientoForm({
                 onChange={(e) => onChange("descripcion_actividades", e.target.value)}
                 disabled={!canEditCamposEntidadSeguimiento || !!ro["descripcion_actividades"]}
                 aria-disabled={!canEditCamposEntidadSeguimiento || !!ro["descripcion_actividades"]}
-              />
+      maxLength={MAX_DESC_ACTIVIDADES}
+    />
+    <p className="mt-1 text-xs text-gray-500 text-right">
+      {(value.descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
+    </p>
             </div>
           </div>
 
@@ -659,7 +676,11 @@ export default function SeguimientoForm({
                     ? "opacity-60"
                     : ""
                 }`}
+                maxLength={MAX_OBS_DDCS_SEG}
               />
+              <p className="mt-1 text-xs text-gray-500 text-right">
+                {(value.observacion_calidad?.length ?? 0)}/{MAX_OBS_DDCS_SEG} caracteres
+                </p>
             </div>
           </div>
         </fieldset>
