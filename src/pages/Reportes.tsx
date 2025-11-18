@@ -6,13 +6,13 @@ import PageBg from "../components/PageBackground";
 /**
  * Enlace de prueba (Shiny público). Puedes sustituirlo por tu URL oficial cuando la recibas.
  */
-const SHINY_URL = "https://modeloserviciociudadania.shinyapps.io/MSC2025/";
+const SHINY_URL = "https://modeloserviciociudadania.shinyapps.io/ModeloSC2025/";
 
 export default function Reportes() {
   return (
      <PageBg >
       <Header />
-      <main className="mx-auto max-w-6xl p-4">
+      <main className="mx-auto p-4">
         <div className="card">
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-xl font-semibold">Reportes</h1>

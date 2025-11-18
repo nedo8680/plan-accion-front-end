@@ -11,6 +11,7 @@ type Props = {
   canAdd?: boolean;
   canDelete?: boolean;
   canDeletePlan?: boolean;
+  hideActions?: boolean;
 };
 
 export default function SeguimientoTabs({
@@ -23,6 +24,7 @@ export default function SeguimientoTabs({
   canAdd = false,
   canDelete = false,
   canDeletePlan = false,
+  hideActions = false,        
 }: Props) {
   const hasItems = items.length > 0;
 
@@ -56,33 +58,34 @@ export default function SeguimientoTabs({
           )}
         </div>
 
-        {/* Derecha: acciones */}
-        <div className="flex items-center gap-2">
+        {/* Derecha: acciones (se pueden ocultar) */}
+        {!hideActions && (
+          <div className="flex items-center gap-2">
+            {/* Agregar seguimiento */}
+            <button
+              type="button"
+              onClick={onAdd}
+              disabled={!canAdd}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                canAdd ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"
+              }`}
+            >
+              Agregar seguimiento
+            </button>
 
-          {/* Agregar seguimiento */}
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={!canAdd}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-              canAdd ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"
-            }`}
-          >
-            Agregar seguimiento
-          </button>
-
-          {/* Borrar seguimiento activo */}
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={!canDelete || !activeId}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-              canDelete && activeId ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-300 cursor-not-allowed"
-            }`}
-          >
-            Borrar seguimiento
-          </button>
-        </div>
+            {/* Borrar seguimiento activo */}
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={!canDelete || !activeId}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                canDelete && activeId ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-300 cursor-not-allowed"
+              }`}
+            >
+              Borrar seguimiento
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ export type Decoded = {
   role: Role;
   uid: number;
   exp: number;
+  entidad: string;
   entidad_perm?: "captura_reportes" | "reportes_seguimiento" | null;
 };
 
@@ -29,6 +30,7 @@ export function getUser(): Decoded | null {
       role: raw?.role ?? "ciudadano",
       uid: raw?.uid ?? 0,
       exp: raw?.exp ?? 0,
+      entidad: raw?.entidad ?? null,
       entidad_perm: raw?.entidad_perm ?? null, 
     };
 

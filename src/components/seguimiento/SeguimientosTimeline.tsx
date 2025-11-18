@@ -1,6 +1,8 @@
 import React from "react";
 import type { Seguimiento } from "./useSeguimientos";
 import { FiClock, FiUser } from "react-icons/fi";
+import { useAuth } from "../../context/AuthContext";
+
 
 type Props = {
   items: Seguimiento[];
@@ -39,6 +41,10 @@ function Pill({ children }: { children: React.ReactNode }) {
 }
 
 export default function SeguimientosTimeline({ items, activeId, onSelect }: Props) {
+  const { user } = useAuth();
+  const role = user?.role;
+  const isAuditor = role === "auditor";
+
   if (items.length === 0) {
     return (
       <div className="rounded-xl border bg-white p-4 text-center text-sm text-gray-500">
@@ -92,10 +98,23 @@ export default function SeguimientosTimeline({ items, activeId, onSelect }: Prop
               {s.id && (
                 <button
                   type="button"
-                  onClick={() => onSelect(s.id!)}
-                  className="rounded-lg bg-[#D32D37] px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  onClick={() => {
+                    onSelect(s.id!);
+                    setTimeout(() => {
+                      const section = document.getElementById("seguimiento-section");
+                      if (section) {
+                        section.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                      }
+                    }, 0);
+                  }}
+                  className={[
+                    "rounded-lg px-3 py-1.5 text-xs font-medium bg-yellow-400 text-gray-900 hover:bg-yellow-200",
+                  ].join(" ")}
                 >
-                  Editar
+                  {isAuditor ? "Hacer observación" : "Ver"}
                 </button>
               )}
             </div>

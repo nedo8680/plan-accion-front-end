@@ -75,6 +75,7 @@ export default function SeguimientoPage() {
     createdOrder,
     toggleCreatedOrder,
     importSeguimientoFields,  
+    createPlanFromAction, 
   } = useSeguimientos();
   
   type IndicadorApiRow = {
@@ -91,11 +92,37 @@ export default function SeguimientoPage() {
   const isAuditor = role === "auditor";
   const isAdmin   = role === "admin";
 
-  const activeChild = children[pagerIndex];
-  const activeChildId = activePlanId ? activeChild?.id : undefined;
+  const currentAny = current as any;
+  const isSeguimientoActual = Boolean(currentAny?.plan_id);
+  const estadoSeguimientoActual = (currentAny?.seguimiento as string) || "Pendiente";
+  const currentSeguimientoId = isSeguimientoActual ? currentAny?.id : undefined;
+  const estadoPlanActual: string | null =
+    (currentAny?.estado as string) ?? null; 
+  
+  
+  const hasSeguimientoActual =
+    Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
+
+
+  const isDraftPlan =
+    estadoPlanActual === "Borrador" && !hasSeguimientoActual;
+
+  // Bloque de seguimiento visible solo si hay plan y NO está en borrador
+  const isSeguimientoVisible =
+    Boolean(currentAny?.plan_id) && !isDraftPlan;
+
+
+  // Regla: la entidad NO puede reenviar/modificar seguimientos que ya no están en "Pendiente"
+  const entidadNoPuedeEnviar =
+    isEntidad && isSeguimientoActual && estadoSeguimientoActual !== "Pendiente";
+
+  const activeChild = children[pagerIndex] ?? null;
+  const activeChildId = activeChild?.id;
 
   // permisos
-  const canDeleteChild = !!activeChildId && (isAdmin || isEntidad);
+  const canDeleteChild = !!currentSeguimientoId && (isAdmin || isEntidad);
+
+
   const canDeletePlan  = !!activePlanId && (isAdmin || isEntidad);
   const canAddChild    = Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
 
@@ -110,12 +137,34 @@ export default function SeguimientoPage() {
   async function handleEnviar() {
     try {
       setSending(true);
-      await saveCurrent({ seguimiento: "En progreso" });
-      alert("Seguimiento enviado a revisión.");
+
+      const currentAny = current as any;
+      const isDraftPlan = currentAny?.estado === "Borrador";
+
+      if (isEntidad || isAdmin ) {
+        const overrides: any = {
+          // cuando la entidad envía, el seguimiento pasa a "En progreso"
+          seguimiento: "En progreso",
+        };
+
+        // si el plan estaba en borrador, lo sacamos a "Pendiente" solo en el front
+        if (isDraftPlan) {
+          overrides.estado = "Pendiente";
+        }
+        await saveCurrent(overrides);
+        alert("Seguimiento enviado a revisión.");
+      } else {
+        // admin / auditor simplemente guardan cambios
+        await saveCurrent({} as any);
+        alert("Seguimiento guardado.");
+      }
     } finally {
       setSending(false);
     }
   }
+
+
+
 
   // ===== Solo móvil: alternar Formulario/Historial
   const [mobileTab, setMobileTab] = React.useState<"form" | "history">(
@@ -127,13 +176,67 @@ export default function SeguimientoPage() {
   function focusForm() {
     setMobileTab("form");
     requestAnimationFrame(() => {
-      const el = formFocusRef.current;
-      if (el) {
-        el.focus();
-        el.closest("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const section = document.getElementById("seguimiento-section");
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth", block: "center" });
+        const firstInput = section.querySelector<
+          HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+        >("input, textarea, select");
+        firstInput?.focus();
       }
     });
   }
+  // Crear uno o varios planes usando la(s) acción(es) de mejora actual(es)
+  const handleNewPlanFromAction = async (accionRaw: string) => {
+    const raw = (accionRaw || "").trim();
+    if (!raw) return;
+
+    // Usamos el mismo criterio que en SeguimientoForm: \n ; , .
+    const partes = raw
+      .split(/[\n;,.]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (!partes.length) return;
+
+    const originalPlanId = activePlanId;
+    const curr = current as any;
+    const indicadorBase = curr?.indicador ?? "";
+
+    try {
+      // Si ya estoy parado sobre un plan (borrador), ese es el "plan original"
+      // y se queda con la primera acción.
+      if (originalPlanId && partes.length >= 2) {
+        updateLocal("accion_mejora_planteada" as any, partes[0]);
+      }
+
+      // Acciones que se convertirán en nuevos planes
+      
+      const accionesParaNuevosPlanes = originalPlanId ? partes.slice(1) : partes;
+
+      // Si no hay plan original (estabas en "Nuevo registro" sin guardar),
+      // todas las acciones se crean como planes nuevos en borrador.
+      for (const acc of accionesParaNuevosPlanes) {
+        await createPlanFromAction(acc, indicadorBase);
+      }
+
+      // Si había plan original, volvemos a seleccionarlo para que el
+      // usuario lo vea con solo la primera acción.
+      if (originalPlanId) {
+        await setActive(originalPlanId);
+      }
+
+      // (Opcional) Enfocar formulario después de crear
+      requestAnimationFrame(() => {
+        const main = document.querySelector("main");
+        main?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } catch (e: any) {
+      alert(e?.message ?? "No se pudieron crear los nuevos registros a partir de las acciones.");
+    }
+  };
+
+
   React.useEffect(() => {
     setMobileTab(children.length ? "history" : "form");
   }, [activePlanId, children.length]);
@@ -146,15 +249,22 @@ export default function SeguimientoPage() {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-semibold">Seguimiento</h1>
           <div className="flex flex-wrap items-center gap-2">
-            <button className="btn-outline" onClick={startNew}>Nuevo registro</button>
-
+            <button
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800  ${
+                !isAuditor ? "bg-white hover:bg-gray-100" : "bg-gray-400 text-white cursor-not-allowed"
+              }`}
+              onClick={() => startNew()}
+              disabled={isAuditor}
+            >
+              Nuevo registro
+            </button>
             {/* Borrar plan */}
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                canDeletePlan ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
+                !isAuditor ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
               }`}
               type="button"
-              disabled={!canDeletePlan}
+              disabled={isAuditor}
               onClick={() => {
                 if (!activePlanId) return;
                 if (confirm("¿Eliminar este plan y todos sus seguimientos?")) removePlan(activePlanId);
@@ -179,6 +289,8 @@ export default function SeguimientoPage() {
               count={plans.length}
               createdOrder={createdOrder}
               toggleCreatedOrder={toggleCreatedOrder}
+              activeEstado={estadoPlanActual}
+              activeChildrenCount={children.length}
             />
           </div>
 
@@ -220,12 +332,14 @@ export default function SeguimientoPage() {
                 </button>
               </div>
               <ImportSeguimientoFile onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi}/>
+
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}
                 readOnlyFields={{ observacion_calidad: isEntidad }}
                 focusRef={formFocusRef}
                 indicadoresApi={indicadoresApi}   
+                onRequestNewPlanFromAction={handleNewPlanFromAction}
                 header={
                   <SeguimientoTabs
                     items={children}
@@ -236,26 +350,79 @@ export default function SeguimientoPage() {
                       focusForm();
                     }}
                     onAdd={async () => {
-                      try { await addChildImmediate(); }
-                      catch (e: any) { alert(e?.message ?? "No se pudo crear el seguimiento."); }
-                    }}
+                    try {
+                      await addChildImmediate();
+                      focusForm();
+                    } catch (e: any) {
+                      alert(e?.message ?? "No se pudo crear el seguimiento.");
+                    }
+                  }}
+
                     onDelete={() => {
-                      if (activeChildId && confirm("¿Eliminar este seguimiento?")) {
-                        removeById(activeChildId);
+                      if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
+                        removeById(currentSeguimientoId);
                       }
                     }}
+
                     canAdd={canAddChild}
                     canDelete={canDeleteChild}
+                    hideActions  
                   />
                 }
+                planActions={
+                  isSeguimientoVisible ? (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await addChildImmediate();
+                            focusForm();
+                          } catch (e: any) {
+                            alert(e?.message ?? "No se pudo crear el seguimiento.");
+                          }
+                        }}
+                        disabled={!canAddChild}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                          canAddChild
+                            ? "bg-emerald-600 hover:bg-emerald-700"
+                            : "bg-emerald-300 cursor-not-allowed"
+                        }`}
+                      >
+                        Agregar seguimiento
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
+                            removeById(currentSeguimientoId);
+                          }
+                        }}
+                        disabled={!canDeleteChild || !currentSeguimientoId}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                          canDeleteChild && currentSeguimientoId
+                            ? "bg-amber-600 hover:bg-amber-700"
+                            : "bg-amber-300 cursor-not-allowed"
+                        }`}
+                      >
+                        Borrar seguimiento
+                      </button>
+                    </div>
+                  ) : null
+                }
+
                 footer={
                   <div className="flex justify-end">
                     <button
                       type="button"
                       onClick={handleEnviar}
-                      disabled={!isDuplicableCurrent || sending}
+                      disabled={!isDuplicableCurrent || sending || entidadNoPuedeEnviar}
                       className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
-                      title="Guardar y enviar"
+                      title={
+                        entidadNoPuedeEnviar
+                          ? "La entidad no puede modificar un seguimiento ya enviado. Cree un nuevo seguimiento."
+                          : "Guardar y enviar"
+                      }
                     >
                       <FiSend /> {sending ? "Enviando..." : "Enviar"}
                     </button>

@@ -41,7 +41,7 @@ function _emit(next: ApiConnState, msg?: string) {
 // ====== ADMIN: USERS API ======
 export const UsersAPI = {
   list: () => api(`/users`),
-  create: (payload: { email: string; password: string; role: UserRole; entidad_perm?: EntidadPerm }) =>
+  create: (payload: { email: string; password: string; role: UserRole; entidad_perm?: EntidadPerm, entidad: string;  }) =>
     api(`/users`, { method: "POST", body: JSON.stringify(payload) }),
   setRole: (id: number, role: UserRole) =>
     api(`/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),

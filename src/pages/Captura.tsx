@@ -25,27 +25,24 @@ const DATA: Section[] = [
         description: "",
         subsections: [
           {
-            title: "Canal Presencial",
+            title: "",
             items: [
-              { label: "RED CADE", url: "	https://v3.proyectamos-odk.com/-/single/g4q4G2GvQfA9u27i02As3n7fbK9C2vs?st=cyWSOSyJ8!whbpZgKG6OqowcrBRYFQWpvzR16Dv$QuK5ijWcq!P5P$Y9DLGGFhWC" },
-              { label: "Feria a tu servicio", url: "https://v3.proyectamos-odk.com/-/single/UHFIUXLZ0Hanaycmm2eRjAyBdROa9vm?st=C$eJmB6R0hZkIzsuXNX0oB4DplYQar3FiUrunA57oavyIuuUl7eri8pvEvG6KpyD" },
-              { label: "Centros de encuentro", url: "https://v3.proyectamos-odk.com/-/single/g4q4G2GvQfA9u27i02As3n7fbK9C2vs?st=wVufmvETMnRWtD94ak6YodB5M2l56r5VjevXISbgCPPsNuJubFbjdxjC9NXe$9Lw" },
-              { label: "Punto propio de entidad", url: "https://v3.proyectamos-odk.com/-/single/g4q4G2GvQfA9u27i02As3n7fbK9C2vs?st=ugfioxSO8xRiKisuQPaF$Cr27VvD8rhnM893nfr$3KpoPKgjc4q7yTqplvZLtZ2c" },
-              { label: "Alcaldías locales", url: "https://v3.proyectamos-odk.com/-/single/g4q4G2GvQfA9u27i02As3n7fbK9C2vs?st=4p42Y3vY6rtIUl8n6nn3Vl6GM0BVUZ9EA9qOTDeruMwZql!!74Mpz!Z$G9qTWn6Y" },
+              { label: "Canal Presencial", url: "https://lively-begonia-ccf65e.netlify.app/external/presencial.html" },
             ],
           },
           {
             title: "Canal Virtual",
             items: [
-              { label: "Chat y Chatico", url: "https://v3.proyectamos-odk.com/-/single/G3udaSJydb8iqNuFdDxQQYQqhJeApbo?st=FHYtDJPlhJYvB7uVqwX5F$9c8xuIoM2lnsfy$XGxnQynoThrg2uzsx2c3n28YU40" },
-              { label: "Portales web", url: "https://v3.proyectamos-odk.com/-/single/gc9QnjDOzCNdtoZoN3pth3Q0LHbQK0D?st=M9bTO4zxvHhS$sWLaIVCLujL2tBhlxKFrOcJZAUF0dSaXU3i7Au$fW0ChsjOH1Ja" },
-              { label: "Bogotá te escucha", url: "https://v3.proyectamos-odk.com/-/single/ABCcKp4IkG5hNolmMCXcu3RzUs07dL4?st=DxjZSN$W$jYKhf1KcoAisY1GWjbCn18ckyCV4SyHHPpYOxbWVKft$ZPrnCEl8aaN" },
+              { label: "Chat", url: "https://lively-begonia-ccf65e.netlify.app/external/chat.html" },
+              { label: "Chatico", url: "https://v3.proyectamos-odk.com/-/single/1UaQGsPPboVIARqE1DqJdoTyJDVN2Yz?st=6XwDkP3toPy1uO8gyPaPTUCr$k19hbRyDGT2hzTik2zbF62Uhuszq1gudKqBrSU4&d[/data/mod1/gp0/p0]=2&d[/data/mod1/gp0/p00]=10&d[/data/mod1/gp1/p3]=&d[/data/mod1/gp1/p4]=&d[/data/mod1/gp1/p01]=&d[/data/mod1/gp1/c5]=" },
+              { label: "Portales web", url: "https://lively-begonia-ccf65e.netlify.app/external/portal-web-entidad.html" },
+              { label: "Bogotá te escucha", url: "https://v3.proyectamos-odk.com/-/single/1UaQGsPPboVIARqE1DqJdoTyJDVN2Yz?st=6XwDkP3toPy1uO8gyPaPTUCr$k19hbRyDGT2hzTik2zbF62Uhuszq1gudKqBrSU4&d[/data/mod1/gp0/p0]=2&d[/data/mod1/gp0/p00]=9&d[/data/mod1/gp1/p3]=&d[/data/mod1/gp1/p4]=&d[/data/mod1/gp1/p01]=&d[/data/mod1/gp1/c5]=" },
             ],
           },
           {
             title: "Canal Telefónico",
             items: [
-              { label: "Líneas telefónicas", url: "https://v3.proyectamos-odk.com/-/single/fAD9vUFVbshDuXwxP6QxeTPA0gAukoi?st=7FvpzT3s4hQJ01Zct1TvhrzB!yARjqDcM$aKAYhmb2Jt0t2uFgMzg3nY$GCmDngL" },
+              { label: "Líneas telefónicas", url: "https://v3.proyectamos-odk.com/-/single/q9WhmBpv8Fj08a6JvImiA82RsLP1XH0?st=!OhjspL68zsDiNveCS!AurvRcLe1TTVwRIhS3VQzLQvckRfBtIfygfDgsif5gF5Z&d[/data/mod1/gp0/p0]=3&d[/data/mod1/gp0/p00]=8&d[/data/mod1/gp1/p3]=&d[/data/mod1/gp1/p4]=&d[/data/mod1/gp1/p01]=&d[/data/mod1/gp1/c5]=" },
             ],
           },
         ],
@@ -56,24 +53,18 @@ const DATA: Section[] = [
   {
     title: "Prestación del Servicio",
     items: [
-      { label: "Calificación de PQRSD", url: "https://v3.proyectamos-odk.com/-/single/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7" },
-      { label: "Calificación de Procesos", url: "https://v3.proyectamos-odk.com/-/single/bhQ2AuXFQTeXrQ1sgM94vpCE5e1uHvz?st=$61rAhag2UElUCaPI5oxWLNh7e8gHc3DDkYXIL7J2jpqUcB$7PAWugGbW!9ESDBD" },
-      { label: "Asignación de PQRS", url: "https://modeloserviciociudadania.shinyapps.io/Asignapp/" },
+      { label: "Calificación de PQRSD", url: "https://v3.proyectamos-odk.com/-/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7" },
+      { label: "Calificación de Procesos", url: "https://v3.proyectamos-odk.com/-/ra1YVOFwob1cKdT9MEKym2TGL07D8l7?st=Mns9zPLD7nxnv95FozmNc9ZDkY9xrEin4aiXJBmD3ib8Ct3KLRq0sNeWUmtfBYVz" },
+      { label: "Capacidad instalada", url: "https://v3.proyectamos-odk.com/-/kfGUXkKFWCvKL0x0uekN7hdfen98YYP?st=rkJpo9UkDVoyeTnDa3!61w$hzM85khM3aKqbudECZ8HICdiU1kKuIC7eHtG!xXVI&d[/data/mod1/gp1/p0]=1" },
     ],
     subsections: [
       {
         title: "Cliente Oculto",
         items: [
-          { label: "Canal Telefónico", url: "https://v3.proyectamos-odk.com/-/single/xbfS6j2lOVuanj491rZOVZhQMhmlMoh?st=L$5TSsk1LFDzX!DvEmsnGBI0aPk9TJAKJq0rhbUihhbmw7w96EQyyGZLrxn0HloN" },
-          { label: "Canal Virtual", url: "https://v3.proyectamos-odk.com/-/single/d6TniNrmYeTbTWj3sMtl5XdkROkkMSv?st=uM3ZbyYEv0LcLEmf3lfRKLXD0m3v2qiJORFhVFV6N2FGmslytEz32owJF3ygkRni" },
+          { label: "Canal Presencial", url: "https://v3.proyectamos-odk.com/-/gPbnWiNfqnEDtYuQCHWrUd04YMZ73ZE?st=$D!33THY4S6e9$KrK!AbR6kXSx9XlbC57cxYt!b9TRTdTi1zyZLq8MreQKosHQtV&d[/data/mod1/gp1/p0]=1" },
+          { label: "Canal Virtual", url: "https://v3.proyectamos-odk.com/-/cinQZGeLvAcpjbWYSiPK0cmTcc1SkP6?st=2wtC932SOJNSl8iONeNSNgG74ZhQi!mVKtY5tMdGjXtwLcyt0tl76BzsUMWZtXZI&d[/data/mod1/gp1/p0]=2" },
+          { label: "Canal Telefónico", url: "https://v3.proyectamos-odk.com/-/QIo14qfC2tpHxrok6T87RpDabnJUrPu?st=c4n23qFAN1jiMMAZl8ow6gljqc1YDgeiW!Lf02TlUtGb5qgrTx0PUQNpc9K!gEIt&d[/data/mod1/gp1/p0]=3" },
         ],
-        subsections: [{
-          title: "Canal Presencial",
-          items: [
-            { label: "Evaluación de estándares", url: "" },
-            { label: "Autoevaluación de capacidad", url: "" },
-          ],
-        }],
       },
     ],
   },
