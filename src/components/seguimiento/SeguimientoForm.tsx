@@ -340,7 +340,19 @@ export default function SeguimientoForm({
 
         {/* Acción de mejora planteada (PLAN) */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
+            Acción de mejora planteada
+          </label>
 
+          <div className="md:col-span-2 space-y-2">
+            <input
+              className="w-full"
+              placeholder="Escribe la(s) acción(es) de mejora, separadas por ',' ';' '.'"
+              value={value.accion_mejora_planteada ?? ""}
+              onChange={(e) => onChange("accion_mejora_planteada", e.target.value)}
+              disabled={!canEditPlanBlock || !!ro["accion_mejora_planteada"]}
+              aria-disabled={!canEditPlanBlock || !!ro["accion_mejora_planteada"]}
+            />
 
             {hasMultipleActions && (
               <div className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
