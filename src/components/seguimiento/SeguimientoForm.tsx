@@ -8,6 +8,11 @@ type InsumoMejora =
   | "Índice de Calidad a las Respuestas"
   | "Peticiones Vencidas en el Sistema"
   | "";
+type IndicadorApiRow = {
+  entidad?: string;
+  indicador?: string;
+  accion?: string;
+};
 
 type UnifiedFormValue = {
   nombre_entidad: string;
@@ -44,9 +49,10 @@ type Props = {
 
   /// Acciones/toolbar abajo del form (p.ej. botones Enviar/Solicitar aprobación/Aprobar)
   footer?: React.ReactNode;
+  indicadoresApi?: IndicadorApiRow[];
 };
 
-export default function SeguimientoForm({ value, onChange, readOnlyFields, topbar, header, focusRef, footer }: Props) {
+export default function SeguimientoForm({ value, onChange, readOnlyFields, topbar, header, focusRef, footer,indicadoresApi, }: Props) {
   const ro = readOnlyFields ?? {};
   const { user } = useAuth();
   const role = user?.role;
@@ -69,6 +75,30 @@ export default function SeguimientoForm({ value, onChange, readOnlyFields, topba
   const [msg, setMsg] = React.useState<string | null>(null); 
   const [eviUploading, setEviUploading] = React.useState(false);      
   const [eviError, setEviError] = React.useState<string | null>(null);
+  const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
+
+  const handleIndicadorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const indicadorValue = e.target.value;
+
+    // Actualizar el campo indicador en el form
+    onChange("indicador" as any, indicadorValue);
+
+    // Buscar la fila correspondiente
+    const row = indicadoresApi?.find((r) => r.indicador === indicadorValue);
+
+    if (row) {
+      // Rellenar automáticamente la acción de mejora
+      if (row.accion) {
+        onChange("accion_mejora_planteada", row.accion);
+      }
+
+      // Opcional: también actualizar nombre_entidad
+      if (row.entidad) {
+        onChange("nombre_entidad", row.entidad);
+      }
+    }
+  };
+
 
   return (
     <form className="space-y-3">
@@ -121,19 +151,36 @@ export default function SeguimientoForm({ value, onChange, readOnlyFields, topba
         {header && <div className="mb-4">{header}</div>}
 
         
-        {/* Indicador (nuevo, se rellena si importan archivo) */}
+        {/* Indicador  */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
             Indicador
           </label>
           <div className="md:col-span-2">
-            <input
-              className="w-full"
-              value={(value as any).indicador ?? ""}
-              onChange={(e) => onChange("indicador" as any, e.target.value)}
-            />
+            {hasIndicadoresApi ? (
+              <select
+                className="w-full"
+                value={(value as any).indicador ?? ""}
+                onChange={handleIndicadorSelect}
+              >
+                <option value="">-- Selecciona un indicador --</option>
+                {indicadoresApi!.map((row, idx) => (
+                  <option key={idx} value={row.indicador ?? ""}>
+                    {row.indicador ?? "(sin indicador)"}{" "}
+                    {row.entidad ? `– ${row.entidad}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="w-full"
+                value={(value as any).indicador ?? ""}
+                onChange={(e) => onChange("indicador" as any, e.target.value)}
+              />
+            )}
           </div>
         </div>
+
 
         {/* Insumo de mejora */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">

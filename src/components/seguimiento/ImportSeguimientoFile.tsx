@@ -1,11 +1,30 @@
 import React, { useRef, useState, useEffect } from "react";
 import { api } from "../../lib/api";
 
-type Props = {
-  onImport: (data: { entidad?: string; indicador?: string; accion?: string }) => void;
+type IndicadorApiRow = {
+  entidad: string | undefined;
+  indicador: string | undefined;
+  accion: string | undefined;
 };
 
-export default function ImportSeguimientoFile({ onImport }: Props) {
+type Props = {
+  onImport: (data: { entidad?: string; indicador?: string; accion?: string }) => void;
+  onOptionsFromApi?: (rows: IndicadorApiRow[]) => void;
+};
+const FALLBACK_ROWS: IndicadorApiRow[] = [
+  {
+    entidad: "Entidad de Prueba 1",
+    indicador: "Indicador de satisfacción",
+    accion: "Realizar encuesta trimestral a los usuarios",
+  },
+  {
+    entidad: "Entidad de Prueba 2",
+    indicador: "Tiempo de respuesta a PQRS",
+    accion: "Implementar tablero de monitoreo diario",
+  },
+];
+
+export default function ImportSeguimientoFile({ onImport, onOptionsFromApi }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string>("");
 
@@ -17,9 +36,7 @@ export default function ImportSeguimientoFile({ onImport }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // mostramos el nombre mientras procesamos
     setFileName(file.name);
-
     const name = file.name.toLowerCase();
 
     try {
@@ -68,61 +85,121 @@ export default function ImportSeguimientoFile({ onImport }: Props) {
         alert("Formato no soportado. Usa CSV o Excel.");
       }
     } finally {
-      // limpiar el input real
       if (inputRef.current) {
         inputRef.current.value = "";
       }
-      // limpiar el nombre mostrado
       setTimeout(() => setFileName(""), 4000);
     }
   };
 
-  // ===== Auto-check: consultar /reports/latest una vez al montar
+  // ===== Auto-check: consultar Mockaroo una vez al montar
   useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    const fetchReport = async () => {
       try {
-        //const MOCKAROO_URL = "https://my.api.mockaroo.com/reports.json?key=e7b6daf0";
-        //const resp = await fetch(MOCKAROO_URL, { method: "GET", mode: "cors" });
-        //const res = await resp.json();
-        const res = await api("/reports/latest");
+        const nombreEntidad = "Entidad de prueba"; 
+
+        const res: any = await api(
+          `/reports/${encodeURIComponent(nombreEntidad)}`
+        );
+        console.log("ImportSeguimientoFile: /reports/{nombre_entidad}", res);
+
         if (!mounted || !res) return;
 
-        // Normalizar: la API puede devolver un objeto o un array
-        const obj = Array.isArray(res) ? res[0] : res;
-        if (!obj || typeof obj !== "object") return;
 
-        // Helper: buscar clave ignorando mayúsculas
-        const findKey = (candidates: string[]) => {
-          for (const k of Object.keys(obj)) {
-            const lk = k.toLowerCase();
-            if (candidates.includes(lk)) return (obj as any)[k];
+        const toRowsFromObj = (obj: any): IndicadorApiRow[] => {
+          if (!obj || typeof obj !== "object") return [];
+
+          if (Array.isArray(obj.indicadores)) {
+            const entidad =
+              obj.entidad || obj.nombre_entidad || obj.nombre || undefined;
+
+            return obj.indicadores.map((item: any) => ({
+              entidad: entidad ? String(entidad) : undefined,
+              indicador: item?.indicador != null ? String(item.indicador) : undefined,
+              accion: item?.accion != null ? String(item.accion) : undefined,
+            }));
           }
-          return undefined;
+
+          
+          const lowerObj: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(obj)) {
+            lowerObj[k.toLowerCase()] = v;
+          }
+
+          const findKey = (candidates: string[]) => {
+            for (const c of candidates) {
+              if (c in lowerObj) return lowerObj[c];
+            }
+            return undefined;
+          };
+
+          const entidad = findKey(["entidad", "nombre_entidad", "nombre"]);
+          const indicador = findKey(["indicador", "indicador_nombre", "nombre_indicador"]);
+          const accion = findKey(["accion", "accion_mejora_planteada", "accion_planteada"]);
+
+          if (!entidad && !indicador && !accion) return [];
+
+          return [
+            {
+              entidad: entidad != null ? String(entidad) : undefined,
+              indicador: indicador != null ? String(indicador) : undefined,
+              accion: accion != null ? String(accion) : undefined,
+            },
+          ];
         };
 
-        const entidad = findKey(["entidad", "nombre_entidad", "nombre"]);
-        const indicador = findKey(["indicador", "indicador_nombre", "nombre_indicador"]);
-        const accion = findKey(["accion", "accion_mejora_planteada", "accion_planteada"]);
+        const arrayObjs = Array.isArray(res) ? res : [res];
 
-        if (entidad || indicador || accion) {
+        const normalized: IndicadorApiRow[] = arrayObjs
+          .flatMap((obj: any) => toRowsFromObj(obj))
+          .filter((x): x is IndicadorApiRow => !!x);
+
+        if (!normalized.length) {
+          if (onOptionsFromApi && mounted) onOptionsFromApi(FALLBACK_ROWS);
+          return;
+        }
+
+        if (onOptionsFromApi && mounted) {
+          onOptionsFromApi(normalized);
+        }
+
+        const first = normalized[0];
+        if (first && (first.entidad || first.indicador || first.accion)) {
           onImport({
-            entidad: entidad != null ? String(entidad) : undefined,
-            indicador: indicador != null ? String(indicador) : undefined,
-            accion: accion != null ? String(accion) : undefined,
+            entidad: first.entidad,
+            indicador: first.indicador,
+            accion: first.accion,
           });
           setFileName("Importado desde API");
           setTimeout(() => setFileName(""), 4000);
         }
       } catch (e) {
-        // Silencioso: no bloquear flujo si backend no responde
-      }
-    })();
+        console.error("ImportSeguimientoFile: error al llamar /reports/{nombre_entidad}", e);
 
+        if (onOptionsFromApi && mounted) {
+          onOptionsFromApi(FALLBACK_ROWS);
+        }
+        const first = FALLBACK_ROWS[0];
+        if (first) {
+          onImport({
+            entidad: first.entidad,
+            indicador: first.indicador,
+            accion: first.accion,
+          });
+          setFileName("Datos de ejemplo (sincronización externa no disponible)");
+          setTimeout(() => setFileName(""), 4000);
+        }
+      }
+    };
+
+    fetchReport();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [onOptionsFromApi]);
+
 
 
   return (

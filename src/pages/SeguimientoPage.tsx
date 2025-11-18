@@ -76,6 +76,14 @@ export default function SeguimientoPage() {
     toggleCreatedOrder,
     importSeguimientoFields,  
   } = useSeguimientos();
+  
+  type IndicadorApiRow = {
+    entidad: string | undefined;
+    indicador: string | undefined;
+    accion: string | undefined;
+  };
+
+  const [indicadoresApi, setIndicadoresApi] = React.useState<IndicadorApiRow[]>([]);
 
   const { user } = useAuth();
   const role = user?.role;
@@ -211,12 +219,13 @@ export default function SeguimientoPage() {
                   <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
                 </button>
               </div>
-              <ImportSeguimientoFile onImport={importSeguimientoFields} />
+              <ImportSeguimientoFile onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi}/>
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}
                 readOnlyFields={{ observacion_calidad: isEntidad }}
                 focusRef={formFocusRef}
+                indicadoresApi={indicadoresApi}   
                 header={
                   <SeguimientoTabs
                     items={children}
