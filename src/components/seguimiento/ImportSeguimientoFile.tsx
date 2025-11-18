@@ -220,7 +220,7 @@ export default function ImportSeguimientoFile({
   }, [nombreEntidad, onOptionsFromApi]);
 
   return (
-    <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-white/80 p-4" style="display:none;">
+    <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-white/80 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-gray-800">
