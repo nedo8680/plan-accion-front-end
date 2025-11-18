@@ -68,6 +68,10 @@ export default function SeguimientoForm({
   const isEntidad = role === "entidad";
   const isAuditor = role === "auditor";
 
+  const MAX_DESC_ACTIVIDADES = 2000;
+  const MAX_PLAN_EVIDENCIA = 2000;
+  const MAX_OBS_DDCS = 1000;
+
   const MAX_UPLOAD_MB = 5;
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
@@ -322,7 +326,11 @@ export default function SeguimientoForm({
               }
               disabled={!canEditPlanBlock || !!ro["plan_descripcion_actividades"]}
               aria-disabled={!canEditPlanBlock || !!ro["plan_descripcion_actividades"]}
+              maxLength={MAX_DESC_ACTIVIDADES}
             />
+    <p className="mt-1 text-xs text-gray-500 text-right">
+      {(value.plan_descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
+    </p>
           </div>
         </div>
 
