@@ -331,7 +331,8 @@ export default function SeguimientoPage() {
                   <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
                 </button>
               </div>
- <ImportSeguimientoFile onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi} nombreEntidad={user?.entidad} />
+              <ImportSeguimientoFile onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi} nombreEntidad={user?.entidad} />
+
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}

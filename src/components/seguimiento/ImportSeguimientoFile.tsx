@@ -221,7 +221,36 @@ export default function ImportSeguimientoFile({
 
   return (
     <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-white/80 p-4">
-     
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-gray-800">
+            Importar datos de seguimiento
+          </p>
+          <p className="text-xs text-gray-500">
+            Sube un archivo con las columnas: <b>entidad</b>, <b>indicador</b>,{" "}
+            <b>accion</b>.
+          </p>
+          {fileName ? (
+            <p className="mt-1 text-xs text-gray-500 font-bold">
+              Procesando: {fileName}...
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={handleSelect}
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+        >
+          Seleccionar archivo
+        </button>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+        onChange={handleFile}
+        className="hidden"
+      />
     </div>
   );
 }
