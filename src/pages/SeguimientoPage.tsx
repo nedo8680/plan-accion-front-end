@@ -84,14 +84,25 @@ export default function SeguimientoPage() {
   const isAuditor = role === "auditor";
   const isAdmin   = role === "admin";
 
-  // Registro actual (puede ser plan o seguimiento)
-    // Registro actual (puede ser plan o seguimiento)
   const currentAny = current as any;
   const isSeguimientoActual = Boolean(currentAny?.plan_id);
   const estadoSeguimientoActual = (currentAny?.seguimiento as string) || "Pendiente";
   const currentSeguimientoId = isSeguimientoActual ? currentAny?.id : undefined;
   const estadoPlanActual: string | null =
     (currentAny?.estado as string) ?? null; 
+  
+  
+  const hasSeguimientoActual =
+    Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
+
+
+  const isDraftPlan =
+    estadoPlanActual === "Borrador" && !hasSeguimientoActual;
+
+  // Bloque de seguimiento visible solo si hay plan y NO está en borrador
+  const isSeguimientoVisible =
+    Boolean(currentAny?.plan_id) && !isDraftPlan;
+
 
   // Regla: la entidad NO puede reenviar/modificar seguimientos que ya no están en "Pendiente"
   const entidadNoPuedeEnviar =
@@ -351,44 +362,47 @@ export default function SeguimientoPage() {
                   />
                 }
                 planActions={
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await addChildImmediate();
-                          focusForm();
-                        } catch (e: any) {
-                          alert(e?.message ?? "No se pudo crear el seguimiento.");
-                        }
-                      }}
-                      disabled={!canAddChild}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                        canAddChild
-                          ? "bg-emerald-600 hover:bg-emerald-700"
-                          : "bg-emerald-300 cursor-not-allowed"
-                      }`}
-                    >
-                      Agregar seguimiento
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
-                          removeById(currentSeguimientoId);
-                        }
-                      }}
-                      disabled={!canDeleteChild || !currentSeguimientoId}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                        canDeleteChild && currentSeguimientoId
-                          ? "bg-amber-600 hover:bg-amber-700"
-                          : "bg-amber-300 cursor-not-allowed"
-                      }`}
-                    >
-                      Borrar seguimiento
-                    </button>
-                  </div>
+                  isSeguimientoVisible ? (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await addChildImmediate();
+                            focusForm();
+                          } catch (e: any) {
+                            alert(e?.message ?? "No se pudo crear el seguimiento.");
+                          }
+                        }}
+                        disabled={!canAddChild}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                          canAddChild
+                            ? "bg-emerald-600 hover:bg-emerald-700"
+                            : "bg-emerald-300 cursor-not-allowed"
+                        }`}
+                      >
+                        Agregar seguimiento
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
+                            removeById(currentSeguimientoId);
+                          }
+                        }}
+                        disabled={!canDeleteChild || !currentSeguimientoId}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
+                          canDeleteChild && currentSeguimientoId
+                            ? "bg-amber-600 hover:bg-amber-700"
+                            : "bg-amber-300 cursor-not-allowed"
+                        }`}
+                      >
+                        Borrar seguimiento
+                      </button>
+                    </div>
+                  ) : null
                 }
+
                 footer={
                   <div className="flex justify-end">
                     <button
