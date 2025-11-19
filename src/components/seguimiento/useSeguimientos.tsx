@@ -129,6 +129,28 @@ export function useSeguimientos() {
       ),
     [plans]
   );
+  
+
+  const [usedIndicadores, setUsedIndicadores] = useState<string[]>([]);
+
+  async function reloadUsedIndicadores() {
+    try {
+      const data = await api("/seguimiento/indicadores_usados");
+      if (Array.isArray(data)) {
+        setUsedIndicadores(
+          data
+            .map((v: unknown) => (typeof v === "string" ? v.trim() : ""))
+            .filter(Boolean)
+        );
+      }
+    } catch (e) {
+      console.error("useSeguimientos: error cargando indicadores usados", e);
+    }
+  }
+  useEffect(() => {
+    reloadUsedIndicadores();
+  }, []);
+
 
   function newPlanFromAction(accion: string) {
     setActivePlanId(null);
@@ -355,12 +377,20 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       setChildren((prev) => [...prev, withActor]);
       saved = withActor;
     }
+    
+    if (childPayload.indicador) {
+      const v = (childPayload.indicador || "").trim();
+      if (v) {
+        setUsedIndicadores((prev) =>
+          prev.includes(v) ? prev : [...prev, v]
+        );
+      }
+    }
 
-    // 👇 aquí calculamos el estado que debe quedar después del save
     const nextEstado =
       (overrides && "estado" in overrides ? overrides.estado : form.estado) ?? null;
 
-    // actualizar el form actual
+    
     setForm((prev) => ({
       ...prev,
       ...(overrides ? { ...saved, ...overrides } : saved),
@@ -438,13 +468,10 @@ async function removeById(id: number) {
     return nextChildren;
   });
 
-  // 3) Actualizar el formulario según lo que quede
+  
   setForm((prev) => {
-    // Si el formulario estaba mostrando justo el seguimiento eliminado
-    // o estaba "huérfano", decidimos qué mostrar ahora
     if (prev.id === id || !prev.id) {
       if (nextChildren.length > 0) {
-        // Tomamos el último seguimiento que quede (podrías usar 0 si prefieres el primero)
         const next = nextChildren[nextChildren.length - 1];
 
         return {
@@ -479,6 +506,7 @@ async function removeById(id: number) {
     }
     return prev;
   });
+  await reloadUsedIndicadores();
 }
 
 
@@ -492,6 +520,7 @@ async function removeById(id: number) {
       setChildren([]);
       setForm(emptyForm());
     }
+    await reloadUsedIndicadores();
   }
 
   function setActiveChild(i: number) {
@@ -578,5 +607,6 @@ async function removeById(id: number) {
     previousActions,
     newPlanFromAction,
     createPlanFromAction, 
+    usedIndicadores,
   };
 }

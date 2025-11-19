@@ -50,10 +50,10 @@ type Props = {
   focusRef?: React.RefObject<HTMLInputElement>;
   footer?: React.ReactNode;
   indicadoresApi?: IndicadorApiRow[];
+  usedIndicadores?: string[];
   planActions?: React.ReactNode;
   onRequestNewPlanFromAction?: (accion: string) => void;
 };
-
 
 export default function SeguimientoForm({
   value,
@@ -66,6 +66,7 @@ export default function SeguimientoForm({
   indicadoresApi,
   planActions,
   onRequestNewPlanFromAction,
+  usedIndicadores,
 }: Props) {
   const ro = readOnlyFields ?? {};
   const { user } = useAuth();
@@ -95,7 +96,7 @@ export default function SeguimientoForm({
 
   // Solo consideramos verdaderamente “Borrador” cuando aún no hay seguimiento creado
   const isDraft = estadoPlan === "Borrador" && !hasSeguimientoActual;
-  
+
   const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraft;
 
   // Bloque de seguimiento solo si hay plan y NO está en borrador
@@ -113,13 +114,23 @@ export default function SeguimientoForm({
 
   // Bloque Plan: editable mientras el plan esté en Borrador
   const canEditPlanBlock = canEditCamposEntidad && isDraft;
-  const canEditNombreEntidad = false; 
+  const canEditNombreEntidad = false;
   const canEditEnlaceEntidad = canEditCamposEntidad && isDraft;
 
   // Estado liviano para feedback de upload
   const [eviUploading, setEviUploading] = React.useState(false);
   const [eviError, setEviError] = React.useState<string | null>(null);
   const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
+
+  // 👇 NUEVO: saber si el plan ya existe en BD
+  const hasPlanPersisted = Boolean(value.plan_id);
+
+  // 👇 NUEVO: regla específica para habilitar el select de indicador
+  const canEditIndicador =
+    hasIndicadoresApi &&
+    !hasPlanPersisted && // si ya hay plan_id, no se puede cambiar el indicador
+    canEditPlanBlock &&
+    !ro["indicador"];
 
   const handleIndicadorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const indicadorValue = e.target.value;
@@ -143,12 +154,11 @@ export default function SeguimientoForm({
     }
   };
 
-
   const todayStr = React.useMemo(
     () => new Date().toISOString().slice(0, 10),
     []
   );
-  
+
   // nombre_entidad desde el usuario cuando el rol es entidad
   React.useEffect(() => {
     if (!entidadFromUser) return;
@@ -180,6 +190,58 @@ export default function SeguimientoForm({
 
   const hasMultipleActions = multiActionCount >= 2 && isDraft;
 
+  const usedIndicadoresSet = React.useMemo(
+    () => new Set((usedIndicadores ?? []).filter(Boolean)),
+    [usedIndicadores]
+  );
+    // Auto-seleccionar el primer indicador disponible (no usado) en nuevos planes
+  React.useEffect(() => {
+    // Si no hay indicadores o no vienen del backend, no hacemos nada
+    if (!hasIndicadoresApi || !indicadoresApi || indicadoresApi.length === 0) return;
+
+    // Si el plan ya existe en BD, no tocamos el indicador (ya está fijado)
+    if (value.plan_id) return;
+
+    const current = (value.indicador || "").trim();
+
+    // Si ya hay un indicador y NO está marcado como usado, lo dejamos tal cual
+    if (current && !usedIndicadoresSet.has(current)) {
+      return;
+    }
+
+    // Buscar el primer indicador NO usado
+    const nextRow = indicadoresApi.find((row) => {
+      const val = (row.indicador || "").trim();
+      if (!val) return false;
+      return !usedIndicadoresSet.has(val);
+    });
+
+    if (!nextRow || !nextRow.indicador) return;
+
+    // Si es igual al que ya tiene, no hacemos nada
+    if (nextRow.indicador === current) return;
+
+    // Asignar automáticamente el indicador disponible
+    onChange("indicador", nextRow.indicador);
+
+    // Opcional: replicamos la lógica del select para rellenar acción y entidad
+    if (nextRow.accion && !value.observacion_informe_calidad) {
+      onChange("observacion_informe_calidad", nextRow.accion);
+    }
+    if (nextRow.entidad && !value.nombre_entidad) {
+      onChange("nombre_entidad", nextRow.entidad);
+    }
+  }, [
+    hasIndicadoresApi,
+    indicadoresApi,
+    usedIndicadoresSet,
+    value.plan_id,
+    value.indicador,
+    value.observacion_informe_calidad,
+    value.nombre_entidad,
+    onChange,
+  ]);
+
   return (
     <form className="space-y-3">
       {/* ===== Toolbar superior (ej. Borrar plan) ===== */}
@@ -195,12 +257,11 @@ export default function SeguimientoForm({
           Nombre Entidad
         </label>
         <div className="md:col-span-2">
-            <input
+          <input
             ref={focusRef}
             className="w-full bg-gray-50 text-gray-700 cursor-not-allowed"
             value={value.nombre_entidad || ""}
-            onChange={() => {
-            }}
+            onChange={() => {}}
             required
             disabled
             readOnly
@@ -239,7 +300,6 @@ export default function SeguimientoForm({
         {/* Header interno (tabs + agregar/borrar seguimiento) */}
         {header && <div className="mb-4">{header}</div>}
 
-        
         {/* Indicador  */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
@@ -247,29 +307,54 @@ export default function SeguimientoForm({
           </label>
           <div className="md:col-span-2">
             {hasIndicadoresApi ? (
-              <select
-                className="w-full"
-                value={(value as any).indicador ?? ""}
-                onChange={handleIndicadorSelect}
-              >
-                <option value="">-- Selecciona un indicador --</option>
-                {indicadoresApi!.map((row, idx) => (
-                  <option key={idx} value={row.indicador ?? ""}>
-                    {row.indicador ?? "(sin indicador)"}{" "}
-                    {row.entidad ? `– ${row.entidad}` : ""}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="w-full"
+                  value={(value as any).indicador ?? ""}
+                  onChange={handleIndicadorSelect}
+                  disabled={!canEditIndicador}
+                  aria-disabled={!canEditIndicador}
+                >
+                  <option value="">-- Selecciona un indicador --</option>
+                  {indicadoresApi!.map((row, idx) => {
+                    const val = row.indicador ?? "";
+
+                    const isUsedAny = !!val && usedIndicadoresSet.has(val);
+
+                    const labelBase = row.indicador ?? "(sin indicador)";
+                    const labelEntidad = row.entidad ? ` – ${row.entidad}` : "";
+                    const suffix = isUsedAny ? " (Ya en plan)" : "";
+
+                    return (
+                      <option
+                        key={idx}
+                        value={val}
+                        disabled={isUsedAny && !hasPlanPersisted}
+                      >
+                        {labelBase}
+                        {labelEntidad}
+                        {suffix}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {hasPlanPersisted
+                    ? "El indicador de este plan ya está definido y no puede modificarse."
+                    : "Los indicadores que ya tienen un plan asociado aparecen deshabilitados para nuevos planes."}
+                </p>
+              </>
             ) : (
               <input
                 className="w-full"
                 value={(value as any).indicador ?? ""}
                 onChange={(e) => onChange("indicador" as any, e.target.value)}
+                disabled={!canEditPlanBlock || !!ro["indicador"]}
+                aria-disabled={!canEditPlanBlock || !!ro["indicador"]}
               />
             )}
           </div>
         </div>
-
 
         {/* Insumo de mejora */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
@@ -396,9 +481,9 @@ export default function SeguimientoForm({
               aria-disabled={!canEditPlanBlock || !!ro["plan_descripcion_actividades"]}
               maxLength={MAX_DESC_ACTIVIDADES}
             />
-    <p className="mt-1 text-xs text-gray-500 text-right">
-      {(value.plan_descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
-    </p>
+            <p className="mt-1 text-xs text-gray-500 text-right">
+              {(value.plan_descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
+            </p>
           </div>
         </div>
 
@@ -417,15 +502,15 @@ export default function SeguimientoForm({
               disabled={!canEditPlanBlock || !!ro["plan_evidencia_cumplimiento"]}
               aria-disabled={!canEditPlanBlock || !!ro["plan_evidencia_cumplimiento"]}
               maxLength={MAX_PLAN_EVIDENCIA}
-    />
-    <div className="mt-1 flex justify-between text-xs text-gray-500">
-      <span>
-        Describe brevemente las evidencias de cumplimiento previstas para esta acción.
-      </span>
-      <span>
-        {(value.plan_evidencia_cumplimiento?.length ?? 0)}/{MAX_PLAN_EVIDENCIA} caracteres
-      </span>
-    </div>
+            />
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>
+                Describe brevemente las evidencias de cumplimiento previstas para esta acción.
+              </span>
+              <span>
+                {(value.plan_evidencia_cumplimiento?.length ?? 0)}/{MAX_PLAN_EVIDENCIA} caracteres
+              </span>
+            </div>
           </div>
         </div>
 
@@ -485,7 +570,6 @@ export default function SeguimientoForm({
             </p>
           </div>
         </div>
-
       </fieldset>
 
       {planActions && (
@@ -586,11 +670,11 @@ export default function SeguimientoForm({
                 onChange={(e) => onChange("descripcion_actividades", e.target.value)}
                 disabled={!canEditCamposEntidadSeguimiento || !!ro["descripcion_actividades"]}
                 aria-disabled={!canEditCamposEntidadSeguimiento || !!ro["descripcion_actividades"]}
-      maxLength={MAX_DESC_ACTIVIDADES}
-    />
-    <p className="mt-1 text-xs text-gray-500 text-right">
-      {(value.descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
-    </p>
+                maxLength={MAX_DESC_ACTIVIDADES}
+              />
+              <p className="mt-1 text-xs text-gray-500 text-right">
+                {(value.descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
+              </p>
             </div>
           </div>
 
@@ -731,7 +815,7 @@ export default function SeguimientoForm({
               />
               <p className="mt-1 text-xs text-gray-500 text-right">
                 {(value.observacion_calidad?.length ?? 0)}/{MAX_OBS_DDCS_SEG} caracteres
-                </p>
+              </p>
             </div>
           </div>
         </fieldset>

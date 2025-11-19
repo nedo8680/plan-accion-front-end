@@ -6,7 +6,7 @@ import PageBg from "../components/PageBackground";
 /**
  * Enlace de prueba (Shiny público). Puedes sustituirlo por tu URL oficial cuando la recibas.
  */
-const SHINY_URL = "https://modeloserviciociudadania.shinyapps.io/ModeloSC2025/";
+const SHINY_URL = "https://modeloserviciociudadania.shinyapps.io/Dashboard-Shiny";
 
 export default function Reportes() {
   return (

@@ -10,7 +10,7 @@ import { FiSend } from "react-icons/fi";
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
 import PlanesSidebar from "../components/seguimiento/PlanesSidebar";
 import SeguimientosTimeline from "../components/seguimiento/SeguimientosTimeline";
-import ImportSeguimientoFile from "../components/seguimiento/ImportSeguimientoFile";
+import IndicadoresAutoLoader from "../components/seguimiento/IndicadoresAutoLoader";
 
 import {
   exportSeguimientosCSV,
@@ -76,6 +76,7 @@ export default function SeguimientoPage() {
     toggleCreatedOrder,
     importSeguimientoFields,  
     createPlanFromAction, 
+    usedIndicadores,    
   } = useSeguimientos();
   
   type IndicadorApiRow = {
@@ -204,29 +205,20 @@ export default function SeguimientoPage() {
     const indicadorBase = curr?.indicador ?? "";
 
     try {
-      // Si ya estoy parado sobre un plan (borrador), ese es el "plan original"
-      // y se queda con la primera acción.
       if (originalPlanId && partes.length >= 2) {
         updateLocal("accion_mejora_planteada" as any, partes[0]);
       }
-
-      // Acciones que se convertirán en nuevos planes
       
       const accionesParaNuevosPlanes = originalPlanId ? partes.slice(1) : partes;
 
-      // Si no hay plan original (estabas en "Nuevo registro" sin guardar),
-      // todas las acciones se crean como planes nuevos en borrador.
       for (const acc of accionesParaNuevosPlanes) {
         await createPlanFromAction(acc, indicadorBase);
       }
 
-      // Si había plan original, volvemos a seleccionarlo para que el
-      // usuario lo vea con solo la primera acción.
       if (originalPlanId) {
         await setActive(originalPlanId);
       }
 
-      // (Opcional) Enfocar formulario después de crear
       requestAnimationFrame(() => {
         const main = document.querySelector("main");
         main?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -331,7 +323,7 @@ export default function SeguimientoPage() {
                   <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
                 </button>
               </div>
-              <ImportSeguimientoFile onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi} nombreEntidad={user?.entidad} />
+              <IndicadoresAutoLoader onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi} nombreEntidad={user?.entidad} />
 
               <SeguimientoForm
                 value={current as any}
@@ -340,6 +332,7 @@ export default function SeguimientoPage() {
                 focusRef={formFocusRef}
                 indicadoresApi={indicadoresApi}   
                 onRequestNewPlanFromAction={handleNewPlanFromAction}
+                usedIndicadores={usedIndicadores}  
                 header={
                   <SeguimientoTabs
                     items={children}
