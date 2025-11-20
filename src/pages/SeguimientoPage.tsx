@@ -123,9 +123,10 @@ export default function SeguimientoPage() {
   // permisos
   const canDeleteChild = !!currentSeguimientoId && (isAdmin || isEntidad);
 
-
-  const canDeletePlan  = !!activePlanId && (isAdmin || isEntidad);
-  const canAddChild    = Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
+  const canResetForm = isAdmin || isEntidad;
+  const canAddChild =
+    (isAdmin || isEntidad) &&
+    Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
 
   // plan activo (objeto)
   const activePlan = React.useMemo(
@@ -142,16 +143,13 @@ export default function SeguimientoPage() {
       const currentAny = current as any;
       const isDraftPlan = currentAny?.estado === "Borrador";
 
-      if (isEntidad || isAdmin ) {
-        const overrides: any = {
-          // cuando la entidad envía, el seguimiento pasa a "En progreso"
-          seguimiento: "En progreso",
-        };
+      if (isEntidad || isAdmin) {
+        const overrides: any = {};
 
-        // si el plan estaba en borrador, lo sacamos a "Pendiente" solo en el front
         if (isDraftPlan) {
           overrides.estado = "Pendiente";
         }
+
         await saveCurrent(overrides);
         alert("Seguimiento enviado a revisión.");
       } else {
@@ -163,9 +161,6 @@ export default function SeguimientoPage() {
       setSending(false);
     }
   }
-
-
-
 
   // ===== Solo móvil: alternar Formulario/Historial
   const [mobileTab, setMobileTab] = React.useState<"form" | "history">(
@@ -314,16 +309,24 @@ export default function SeguimientoPage() {
             <section className={`card ${mobileTab === "form" ? "block" : "hidden lg:block"}`}>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Formulario · Seguimiento</h2>
-                <button
+                {canResetForm && (
+                  <button
                   type="button"
                   className="btn-outline"
                   onClick={resetCurrent}
                   title="Limpiar formulario actual"
-                >
-                  <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
-                </button>
+                  >
+                    <FaEraser /> <span className="hidden sm:inline">Limpiar</span>
+                  </button>
+                )}
+               
+
               </div>
-              <IndicadoresAutoLoader onImport={importSeguimientoFields}  onOptionsFromApi={setIndicadoresApi} nombreEntidad={user?.entidad} />
+              <IndicadoresAutoLoader
+                onImport={importSeguimientoFields}
+                onOptionsFromApi={setIndicadoresApi}
+                nombreEntidad={(current as any)?.nombre_entidad || user?.entidad}
+              />
 
               <SeguimientoForm
                 value={current as any}
@@ -359,11 +362,10 @@ export default function SeguimientoPage() {
 
                     canAdd={canAddChild}
                     canDelete={canDeleteChild}
-                    hideActions  
                   />
                 }
                 planActions={
-                  isSeguimientoVisible ? (
+                  !isAuditor && isSeguimientoVisible ? (
                     <div className="flex flex-wrap justify-end gap-2">
                       <button
                         type="button"

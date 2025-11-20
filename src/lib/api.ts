@@ -53,6 +53,11 @@ export const UsersAPI = {
     api(`/users/${id}`, { method: "DELETE" }),
 };
 
+// ====== REPORTS: obtener entidades para alta de usuarios ======
+export const ReportsAPI = {
+  list: () => api(`/reports`),
+};
+
 
 export function onApiStateChange(fn: Listener): () => void {
   _listeners.add(fn);
@@ -183,7 +188,7 @@ export async function api(path: string, options: RequestInit = {}) {
 
   throw lastErr;
 }
-// ====== UPLOAD: Evidencia (PDF/DOC/DOCX) ======
+// ====== UPLOAD: Evidencia (imágenes, PDF, Excel, comprimidos) ======
 export async function uploadEvidence( file: File
 ): Promise<{
   href: string;
@@ -193,13 +198,45 @@ export async function uploadEvidence( file: File
   content_type: string;
 }> {
   if (!file) throw new Error("No hay archivo");
-  const allowed = [
+  const allowedTypes = new Set<string>([
+    // Imágenes
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    // PDF
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ];
-  if (!allowed.includes(file.type)) {
-    throw new Error("Solo se permiten PDF o Word (doc, docx)");
+    // Excel / CSV
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+    // Comprimidos
+    "application/zip",
+    "application/x-zip-compressed",
+    "application/x-rar-compressed",
+    "application/x-7z-compressed",
+  ]);
+  const allowedExts = new Set<string>([
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "pdf",
+    "xls",
+    "xlsx",
+    "csv",
+    "zip",
+    "rar",
+    "7z",
+  ]);
+
+  const typeOk = file.type ? allowedTypes.has(file.type) : false;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const extOk = allowedExts.has(ext);
+
+  if (!typeOk && !extOk) {
+    throw new Error(
+      "Formatos permitidos: imágenes (JPG, PNG), PDF, Excel (XLS/XLSX/CSV) y comprimidos (ZIP, RAR, 7Z)"
+    );
   }
   const form = new FormData();
   form.append("file", file);

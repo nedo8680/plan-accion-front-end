@@ -59,7 +59,7 @@ export default function IndicadoresAutoLoader({
             }));
           }
 
-          // Fallback: formato plano tipo Mockaroo anterior
+          // Fallback: intentar extraer campos sueltos
           const lowerObj: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(obj)) {
             lowerObj[k.toLowerCase()] = v;
@@ -101,10 +101,10 @@ export default function IndicadoresAutoLoader({
           .flatMap((obj: any) => toRowsFromObj(obj))
           .filter((x): x is IndicadorApiRow => !!x);
 
-        // Si no vino nada útil, usamos fallback
+        // Si no encontró nada, usamos fallback
         if (!normalized.length) {
           if (onOptionsFromApi && mounted) onOptionsFromApi(FALLBACK_ROWS);
-          return;
+          return; // no auto-import para no pisar datos con fallback
         }
 
         // Opciones para el <select> de Indicador
@@ -130,14 +130,7 @@ export default function IndicadoresAutoLoader({
         if (onOptionsFromApi && mounted) {
           onOptionsFromApi(FALLBACK_ROWS);
         }
-        const first = FALLBACK_ROWS[0];
-        if (first) {
-          onImport({
-            entidad: first.entidad,
-            indicador: first.indicador,
-            accion: first.accion,
-          });
-        }
+        // No auto-importar fallback para evitar pisar entidad/indicador
       }
     };
 

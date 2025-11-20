@@ -57,35 +57,6 @@ export default function SeguimientoTabs({
             })
           )}
         </div>
-
-        {/* Derecha: acciones (se pueden ocultar) */}
-        {!hideActions && (
-          <div className="flex items-center gap-2">
-            {/* Agregar seguimiento */}
-            <button
-              type="button"
-              onClick={onAdd}
-              disabled={!canAdd}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                canAdd ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"
-              }`}
-            >
-              Agregar seguimiento
-            </button>
-
-            {/* Borrar seguimiento activo */}
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={!canDelete || !activeId}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                canDelete && activeId ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-300 cursor-not-allowed"
-              }`}
-            >
-              Borrar seguimiento
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

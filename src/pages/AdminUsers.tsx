@@ -1,12 +1,12 @@
 import React from "react";
-import { UsersAPI, UserRole } from "../lib/api";
+import { UsersAPI, UserRole, ReportsAPI } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import Spinner from "../components/Spinner";
 import Header from "../components/Header";
 import { FiEye, FiEyeOff, FiKey, FiTrash2 } from "react-icons/fi";
 
 type EntPerm = "captura_reportes" | "reportes_seguimiento";
-type Row = { id: number; email: string; role: UserRole; entidad_perm?: EntPerm | null };
+type Row = { id: number; email: string; role: UserRole; entidad_perm?: EntPerm | null; entidad?: string | null };
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -23,6 +23,10 @@ export default function AdminUsers() {
   const [rows, setRows] = React.useState<Row[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [entidadesCatalog, setEntidadesCatalog] = React.useState<string[]>([]);
+  const [loadingEntidades, setLoadingEntidades] = React.useState(false);
+  const [entidadesError, setEntidadesError] = React.useState<string | null>(null);
+  const resetRowRef = React.useRef<HTMLDivElement | null>(null);
 
   // Form nuevo usuario
   const [email, setEmail] = React.useState("");
@@ -40,6 +44,10 @@ export default function AdminUsers() {
   const [submittingReset, setSubmittingReset] = React.useState(false);
 
   const isAdmin = user?.role === "admin";
+  const roleRef = React.useRef(role);
+  React.useEffect(() => {
+    roleRef.current = role;
+  }, [role]);
 
   // ─────────────────────────────────────────────
   // Toasts
@@ -69,6 +77,40 @@ export default function AdminUsers() {
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
+  const loadEntidades = React.useCallback(async () => {
+    if (role !== "entidad") return;
+    try {
+      setLoadingEntidades(true);
+      setEntidadesError(null);
+      const data = await ReportsAPI.list();
+      if (!Array.isArray(data)) throw new Error("Respuesta inválida de reports");
+
+      const set = new Set<string>();
+      for (const row of data) {
+        const ent = typeof (row as any)?.entidad === "string" ? (row as any).entidad.trim() : "";
+        if (ent) set.add(ent);
+      }
+      const list = Array.from(set).sort((a, b) =>
+        a.localeCompare(b, "es", { sensitivity: "base" })
+      );
+      // Si mientras cargábamos cambió el rol, no sobrescribir
+      if (roleRef.current !== "entidad") return;
+      setEntidadesCatalog(list);
+      if (!entidad && list.length) setEntidad(list[0]);
+    } catch (e: any) {
+      setEntidadesError(e?.message || "No se pudo cargar entidades desde reports.");
+    } finally {
+      setLoadingEntidades(false);
+    }
+  }, [role, entidad]);
+
+  React.useEffect(() => { if (role === "entidad") loadEntidades(); }, [role, loadEntidades]);
+
+  // Si cambia a rol distinto de entidad, limpiar la entidad para que el campo quede libre
+  React.useEffect(() => {
+    if (role !== "entidad") setEntidad("");
+  }, [role]);
+
   // Guard: solo admin
   if (!isAdmin) {
     return (
@@ -92,6 +134,10 @@ export default function AdminUsers() {
       setError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
+    if (!entidad.trim()) {
+      setError(role === "entidad" ? "Selecciona una entidad." : "Ingresa el nombre de la entidad/usuario.");
+      return;
+    }
     try {
       setSubmitting(true);
       setError(null);
@@ -99,7 +145,7 @@ export default function AdminUsers() {
         email,
         password,
         role,
-        entidad: entidad.trim(),   
+        entidad: entidad.trim(),
         ...(role === "entidad" ? { entidad_perm: entPerm } : {}),
       });
       setEmail("");
@@ -266,17 +312,54 @@ export default function AdminUsers() {
               />
             </div>
 
-            <div className="sm:col-span-1">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Entidad/Usuario</label>
-              <input
-                type="text"
-                value={entidad}
-                onChange={(e) => setEntidad(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
-                placeholder="Nombre de la entidad/usuario"
-                required
-              />
-            </div>
+            {role === "entidad" ? (
+              <div className="sm:col-span-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Entidad/Usuario</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={entidad}
+                    onChange={(e) => setEntidad(e.target.value)}
+                    className="w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+                    required={role === "entidad"}
+                    disabled={loadingEntidades || entidadesCatalog.length === 0}
+                  >
+                    {loadingEntidades && <option value="">Cargando entidades…</option>}
+                    {!loadingEntidades && entidadesCatalog.length === 0 && (
+                      <option value="">Sin datos de entidades</option>
+                    )}
+                    {!loadingEntidades &&
+                      entidadesCatalog.map((ent) => (
+                        <option key={ent} value={ent}>
+                          {ent}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={loadEntidades}
+                    className="rounded-md border px-2 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                    title="Recargar entidades desde reports"
+                  >
+                    Recargar
+                  </button>
+                </div>
+                {entidadesError && (
+                  <p className="mt-1 text-xs text-red-600">{entidadesError}</p>
+                )}
+              </div>
+            ) : (
+              <div className="sm:col-span-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Entidad/Usuario</label>
+                <input
+                  type="text"
+                  value={entidad}
+                  onChange={(e) => setEntidad(e.target.value)}
+                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+                  placeholder="Nombre de la entidad/usuario"
+                  required
+                />
+              </div>
+            )}
 
             <div className="sm:col-span-1">
               <label className="mb-1 block text-sm font-medium text-gray-700">Contraseña</label>
@@ -341,6 +424,7 @@ export default function AdminUsers() {
               <tr>
                 <th className="px-4 py-2 text-left font-semibold text-gray-700">ID</th>
                 <th className="px-4 py-2 text-left font-semibold text-gray-700">Email</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Entidad/Usuario</th>
                 <th className="px-4 py-2 text-left font-semibold text-gray-700">Rol</th>
                 <th className="px-4 py-2 text-left font-semibold text-gray-700 hidden sm:table-cell">
                   Permisos (entidad)
@@ -351,13 +435,13 @@ export default function AdminUsers() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6">
+                  <td colSpan={6} className="px-4 py-6">
                     <Spinner />
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
                     No hay usuarios.
                   </td>
                 </tr>
@@ -367,6 +451,7 @@ export default function AdminUsers() {
                     <tr>
                       <td className="px-4 py-2">{r.id}</td>
                       <td className="px-4 py-2">{r.email}</td>
+                      <td className="px-4 py-2">{r.entidad || "—"}</td>
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
                           <RoleBadge role={r.role} />
@@ -403,6 +488,7 @@ export default function AdminUsers() {
                               setResetId(r.id);
                               setResetPass("");
                               setShowResetPass(false);
+                              setTimeout(() => resetRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
                             }}
                             className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
                             title="Resetear contraseña"
@@ -421,11 +507,71 @@ export default function AdminUsers() {
                         </div>
                       </td>
                     </tr>
+                    {resetId === r.id && (
+                      <tr>
+                        <td colSpan={6} className="px-4 pb-4">
+                          <div
+                            ref={resetRowRef}
+                            className="mt-2 rounded-lg border border-yellow-200 bg-yellow-50 p-4 shadow-inner"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                              <div className="sm:w-80">
+                                <label className="mb-1 block text-sm font-medium text-gray-700">
+                                  Nueva contraseña
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type={showResetPass ? "text" : "password"}
+                                    value={resetPass}
+                                    onChange={(e) => setResetPass(e.target.value)}
+                                    className="w-full rounded-md border px-3 py-2 pr-16 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+                                    placeholder="Mínimo 8 caracteres"
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowResetPass((v) => !v)}
+                                    className="absolute inset-y-0 right-2 my-auto rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                    aria-label={showResetPass ? "Ocultar contraseña" : "Mostrar contraseña"}
+                                    title={showResetPass ? "Ocultar" : "Mostrar"}
+                                  >
+                                    {showResetPass ? <FiEyeOff /> : <FiEye />}
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleDoReset}
+                                  disabled={submittingReset}
+                                  className="rounded-md bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-50"
+                                >
+                                  {submittingReset ? "Guardando..." : "Guardar"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setResetId(null);
+                                    setResetPass("");
+                                    setShowResetPass(false);
+                                  }}
+                                  className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {/* Acciones móviles */}
                     <tr className="sm:hidden">
-                      <td colSpan={5} className="px-4 pb-3">
+                      <td colSpan={6} className="px-4 pb-3">
                         <div className="flex justify-between items-center gap-2">
+                          <div className="flex-1 text-xs text-gray-600">
+                            <div className="font-semibold">Entidad/Usuario</div>
+                            <div>{r.entidad || "—"}</div>
+                          </div>
                           {r.role === "entidad" ? (
                             <div className="flex-1">
                               <EntPermSelect
@@ -442,6 +588,7 @@ export default function AdminUsers() {
                                 setResetId(r.id);
                                 setResetPass("");
                                 setShowResetPass(false);
+                                setTimeout(() => resetRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
                               }}
                               className="rounded-full border p-2 hover:bg-gray-50"
                               title="Resetear contraseña"
@@ -459,6 +606,53 @@ export default function AdminUsers() {
                             </button>
                           </div>
                         </div>
+                        {resetId === r.id && (
+                          <div
+                            ref={resetRowRef}
+                            className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 shadow-inner"
+                          >
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              Nueva contraseña
+                            </label>
+                            <div className="relative mb-3">
+                              <input
+                                type={showResetPass ? "text" : "password"}
+                                value={resetPass}
+                                onChange={(e) => setResetPass(e.target.value)}
+                                className="w-full rounded-md border px-3 py-2 pr-16 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+                                placeholder="Mínimo 8 caracteres"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowResetPass((v) => !v)}
+                                className="absolute inset-y-0 right-2 my-auto rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                aria-label={showResetPass ? "Ocultar contraseña" : "Mostrar contraseña"}
+                              >
+                                {showResetPass ? <FiEyeOff /> : <FiEye />}
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleDoReset}
+                                disabled={submittingReset}
+                                className="flex-1 rounded-md bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-50"
+                              >
+                                {submittingReset ? "Guardando..." : "Guardar"}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setResetId(null);
+                                  setResetPass("");
+                                  setShowResetPass(false);
+                                }}
+                                className="flex-1 rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   </React.Fragment>
@@ -468,55 +662,6 @@ export default function AdminUsers() {
           </table>
         </div>
 
-        {/* Panel inline para reset de contraseña */}
-        {resetId !== null && (
-          <div className="mt-4 rounded-lg border bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="sm:w-80">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Nueva contraseña
-                </label>
-                <div className="relative">
-                  <input
-                    type={showResetPass ? "text" : "password"}
-                    value={resetPass}
-                    onChange={(e) => setResetPass(e.target.value)}
-                    className="w-full rounded-md border px-3 py-2 pr-16 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
-                    placeholder="Mínimo 8 caracteres"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowResetPass((v) => !v)}
-                    className="absolute inset-y-0 right-2 my-auto rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                    aria-label={showResetPass ? "Ocultar contraseña" : "Mostrar contraseña"}
-                    title={showResetPass ? "Ocultar" : "Mostrar"}
-                  >
-                    {showResetPass ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleDoReset}
-                  disabled={submittingReset}
-                  className="rounded-md bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  {submittingReset ? "Guardando..." : "Guardar"}
-                </button>
-                <button
-                  onClick={() => {
-                    setResetId(null);
-                    setResetPass("");
-                    setShowResetPass(false);
-                  }}
-                  className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Host de toasts */}

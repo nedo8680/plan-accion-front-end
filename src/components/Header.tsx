@@ -72,7 +72,7 @@ export default function Header() {
             )}
             {user && (
               <>
-                <span className="hidden sm:inline text-sm">
+                <span className="hidden sm:inline text-sm max-w-[220px] truncate">
                   {displayEntidad} ({ displayRole === "auditor" ? "Evaluador" : displayRole})
                 </span>
 
