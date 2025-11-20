@@ -25,9 +25,6 @@ export default function PrivateRoute({ children }: { children: JSX.Element }) {
     if (perm === "captura_reportes" && path.startsWith("/seguimiento")) {
       return <Navigate to="/reportes" replace />;
     }
-    if (perm === "reportes_seguimiento" && path.startsWith("/captura")) {
-      return <Navigate to="/reportes" replace />;
-    }
   }
 
   return children;

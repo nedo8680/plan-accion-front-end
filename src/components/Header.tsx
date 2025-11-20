@@ -24,12 +24,8 @@ export default function Header() {
   // sin fallback: si es null/undefined, NO mostramos Captura ni Seguimiento por ser indeterminado
   const entidadCapRep = isEntidad && entidadPerm === "captura_reportes";
   const entidadRepSeg = isEntidad && entidadPerm === "reportes_seguimiento";
+  const entidadRepSegCaptura = isEntidad && entidadPerm === "reportes_seguimiento"; // puede ver captura con restricción
 
-  // Normaliza email para /auth/me o JWT
-  const displayEmail = React.useMemo(() => {
-    const u = user as any;
-    return u?.email ?? u?.sub ?? "";
-  }, [user]);
   const displayRole = user?.role as string | undefined;
   const displayEntidad= (user as any)?.entidad as string | undefined;
   return (
@@ -45,8 +41,8 @@ export default function Header() {
           {/* Navegación Desktop */}
           <nav className="hidden md:block" aria-label="Principal">
             <ul className="flex items-center gap-2">
-              {/* Captura: admin | entidad(captura_reportes) */}
-              {(isAdmin || isAuditor || entidadCapRep) && (
+              {/* Captura: admin | auditor | entidad(captura_reportes) | entidad(reportes_seguimiento) */}
+              {(isAdmin || isAuditor || entidadCapRep || entidadRepSegCaptura) && (
                 <li><NavLink to="/captura" className={navLinkClass}>Captura</NavLink></li>
               )}
 
@@ -72,7 +68,7 @@ export default function Header() {
             )}
             {user && (
               <>
-                <span className="hidden sm:inline text-sm">
+                <span className="hidden sm:inline text-sm max-w-[220px] truncate">
                   {displayEntidad} ({ displayRole === "auditor" ? "Evaluador" : displayRole})
                 </span>
 
@@ -119,7 +115,7 @@ export default function Header() {
           {user && (
             <div className="flex items-center justify-between px-3 py-3 text-white border-b border-white/10">
               <div>
-                <div className="text-sm font-medium">{displayEmail}</div>
+                <div className="text-sm font-medium">{displayEntidad || "Entidad"}</div>
                 <div className="text-xs opacity-80">{displayRole === "auditor" ? "Evaluador" : displayRole }</div>
               </div>
               {isAdmin && (
@@ -136,8 +132,8 @@ export default function Header() {
           )}
 
           <ul className="px-2 py-2">
-            {/* Captura: admin | entidad(captura_reportes) */}
-            {(isAdmin || entidadCapRep || isAuditor ) && (
+            {/* Captura: admin | auditor | entidad(captura_reportes) | entidad(reportes_seguimiento) */}
+            {(isAdmin || isAuditor || entidadCapRep || entidadRepSegCaptura) && (
               <li><NavLink to="/captura" className={navLinkClass}>Captura</NavLink></li>
             )}
 

@@ -166,6 +166,7 @@ export default function Captura() {
   const isAdmin = user?.role === "admin";
   const isEntidad = user?.role === "entidad";
   const isAuditor = user?.role === "auditor";
+  const perm = (user as any)?.entidad_perm as "captura_reportes" | "reportes_seguimiento" | null | undefined;
 
   const allowedLabels = new Set<string>([
     "Grupos Focales (Sistematización)",
@@ -176,11 +177,33 @@ export default function Captura() {
     if (isAdmin || isAuditor ) return DATA;
 
     if (isEntidad) {
+      // Rol: Seguimiento + Reportes -> puede ver Captura, pero solo ciertas secciones
+      if (perm === "reportes_seguimiento") {
+        const keepPrestacion = new Set(["Calificación de Procesos", "Capacidad instalada"]);
+        return DATA.map((section) => {
+          if (section.title === "Satisfacción y Experiencia") {
+            return section; // se muestra completa
+          }
+          if (section.title === "Prestación del Servicio") {
+            const items = (section.items ?? []).filter((it) => keepPrestacion.has(it.label));
+            return { ...section, items, subsections: [], groups: [] };
+          }
+          return null;
+        })
+          .filter((sec): sec is Section => !!sec)
+          .filter(
+            (sec) =>
+              (sec.items && sec.items.length) ||
+              (sec.subsections && sec.subsections.length) ||
+              (sec.groups && sec.groups.length)
+          );
+      }
+
+      // Resto de entidades: misma restricción anterior
       return DATA.map((section) => {
         const items = section.items?.filter((it) => allowedLabels.has(it.label)) ?? [];
-        // No filtramos groups para que ENTIDAD vea “Encuesta a la Ciudadanía”
         const groups = section.groups ?? [];
-        const subsections: SubSection[] = []; // tal como ya hacías
+        const subsections: SubSection[] = [];
 
         return { ...section, items, groups, subsections };
       }).filter(
@@ -192,7 +215,7 @@ export default function Captura() {
     }
 
     return [];
-  }, [isAdmin, isEntidad, isAuditor]);
+  }, [isAdmin, isEntidad, isAuditor, perm]);
 
   const SECTIONS = isAdmin || isAuditor ? DATA : filteredData;
 

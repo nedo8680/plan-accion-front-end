@@ -1,4 +1,5 @@
 import React from "react";
+import { FiInfo } from "react-icons/fi";
 
 import { useAuth } from "../../context/AuthContext";
 import { uploadEvidence } from "../../lib/api";
@@ -120,6 +121,8 @@ export default function SeguimientoForm({
   // Estado liviano para feedback de upload
   const [eviUploading, setEviUploading] = React.useState(false);
   const [eviError, setEviError] = React.useState<string | null>(null);
+  const [eviHelpOpen, setEviHelpOpen] = React.useState(false);
+  const eviHelpRef = React.useRef<HTMLDivElement | null>(null);
   const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
 
   // 👇 NUEVO: saber si el plan ya existe en BD
@@ -194,6 +197,19 @@ export default function SeguimientoForm({
     () => new Set((usedIndicadores ?? []).filter(Boolean)),
     [usedIndicadores]
   );
+
+  // Cerrar tooltip de ayuda si se hace click fuera
+  React.useEffect(() => {
+    if (!eviHelpOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (eviHelpRef.current && !eviHelpRef.current.contains(event.target as Node)) {
+        setEviHelpOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [eviHelpOpen]);
+
     // Auto-seleccionar el primer indicador disponible (no usado) en nuevos planes
   React.useEffect(() => {
     // Si no hay indicadores o no vienen del backend, no hacemos nada
@@ -296,10 +312,6 @@ export default function SeguimientoForm({
             </span>
           )}
         </legend>
-
-        {/* Header interno (tabs + agregar/borrar seguimiento) */}
-        {header && <div className="mb-4">{header}</div>}
-
         {/* Indicador  */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
@@ -308,36 +320,58 @@ export default function SeguimientoForm({
           <div className="md:col-span-2">
             {hasIndicadoresApi ? (
               <>
-                <select
-                  className="w-full"
-                  value={(value as any).indicador ?? ""}
-                  onChange={handleIndicadorSelect}
-                  disabled={!canEditIndicador}
-                  aria-disabled={!canEditIndicador}
-                >
-                  <option value="">-- Selecciona un indicador --</option>
-                  {indicadoresApi!.map((row, idx) => {
-                    const val = row.indicador ?? "";
-
-                    const isUsedAny = !!val && usedIndicadoresSet.has(val);
-
-                    const labelBase = row.indicador ?? "(sin indicador)";
-                    const labelEntidad = row.entidad ? ` – ${row.entidad}` : "";
-                    const suffix = isUsedAny ? " (Ya en plan)" : "";
-
-                    return (
-                      <option
-                        key={idx}
-                        value={val}
-                        disabled={isUsedAny && !hasPlanPersisted}
-                      >
-                        {labelBase}
-                        {labelEntidad}
-                        {suffix}
-                      </option>
+                {(() => {
+                  const currentIndicador = (value as any).indicador ?? "";
+                  const trimmedCurrent = currentIndicador.trim();
+                  const hasCurrentInOptions =
+                    !!trimmedCurrent &&
+                    indicadoresApi!.some(
+                      (row) => (row.indicador ?? "").trim() === trimmedCurrent
                     );
-                  })}
-                </select>
+
+                  return (
+                    <select
+                      className="w-full"
+                      value={currentIndicador}
+                      onChange={handleIndicadorSelect}
+                      disabled={!canEditIndicador}
+                      aria-disabled={!canEditIndicador}
+                    >
+                      <option value="">-- Selecciona un indicador --</option>
+
+                      {/* Si hay un indicador guardado que NO está en la lista,
+                          lo mostramos igual para admin/auditor */}
+                      {trimmedCurrent && !hasCurrentInOptions && (
+                        <option value={currentIndicador}>
+                          {currentIndicador}
+                        </option>
+                      )}
+
+                      {indicadoresApi!.map((row, idx) => {
+                        const val = row.indicador ?? "";
+
+                        const isUsedAny = !!val && usedIndicadoresSet.has(val);
+
+                        const labelBase = row.indicador ?? "(sin indicador)";
+                        const labelEntidad = row.entidad ? ` – ${row.entidad}` : "";
+                        const suffix = isUsedAny ? " (Ya en plan)" : "";
+
+                        return (
+                          <option
+                            key={idx}
+                            value={val}
+                            disabled={isUsedAny && !hasPlanPersisted}
+                          >
+                            {labelBase}
+                            {labelEntidad}
+                            {suffix}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                })()}
+
                 <p className="mt-1 text-xs text-gray-500">
                   {hasPlanPersisted
                     ? "El indicador de este plan ya está definido y no puede modificarse."
@@ -355,6 +389,7 @@ export default function SeguimientoForm({
             )}
           </div>
         </div>
+
 
         {/* Insumo de mejora */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
@@ -585,7 +620,7 @@ export default function SeguimientoForm({
           className="mt-4 space-y-3 rounded-md border border-gray-300 p-3"
         >
           {/* Tabs de seguimientos */}
-          {header && <div className="mb-4">{header}</div>}
+        <div className="mb-4">{header}</div>
 
           <legend className="px-2 text-sm font-semibold text-gray-700">
             Seguimiento a las acciones del Plan de mejoramiento
@@ -602,10 +637,11 @@ export default function SeguimientoForm({
                 className="w-full"
                 value={value.fecha_reporte ?? ""}
                 min={(value as any).created_at?.slice(0, 10) ?? todayStr}
+                max={todayStr}
                 onChange={(e) => {
                   const v = e.target.value;
                   const min = (value as any).created_at?.slice(0, 10) ?? todayStr;
-                  if (v && v < min) return;
+                  if (v && (v < min || v > todayStr)) return;
                   onChange("fecha_reporte" as any, v);
                 }}
                 disabled={!canEditCamposEntidadSeguimiento || !!ro["fecha_reporte"]}
@@ -681,7 +717,9 @@ export default function SeguimientoForm({
           {/* Evidencias de cumplimiento de la acción (archivo) */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-start">
             <label className="text-sm font-medium text-gray-700 md:text-right md:pr-3">
-              Evidencias de cumplimiento de la acción
+              <span className="flex items-center gap-2">
+                Evidencias de cumplimiento de la acción
+              </span>
             </label>
             <div className="md:col-span-2 space-y-2">
               {(() => {
@@ -693,56 +731,109 @@ export default function SeguimientoForm({
                 if (!isUrl) {
                   return (
                     <>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        disabled={
-                          !canEditCamposEntidadSeguimiento ||
-                          !!ro["evidencia_cumplimiento"] ||
-                          eviUploading
-                        }
-                        aria-disabled={
-                          !canEditCamposEntidadSeguimiento ||
-                          !!ro["evidencia_cumplimiento"] ||
-                          eviUploading
-                        }
-                        onChange={async (e) => {
-                          const inputEl = e.currentTarget;
-                          const file = inputEl.files?.[0];
-                          if (!file) return;
+                      <div ref={eviHelpRef} className="relative flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept={[
+                            // Imágenes
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".gif",
+                            "image/*",
+                            // Documentos
+                            ".pdf",
+                            "application/pdf",
+                            // Excel / CSV
+                            ".xls",
+                            ".xlsx",
+                            ".csv",
+                            "application/vnd.ms-excel",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "text/csv",
+                            // Comprimidos
+                            ".zip",
+                            ".rar",
+                            ".7z",
+                            "application/zip",
+                            "application/x-zip-compressed",
+                            "application/x-rar-compressed",
+                            "application/x-7z-compressed",
+                          ].join(",")}
+                          disabled={
+                            !canEditCamposEntidadSeguimiento ||
+                            !!ro["evidencia_cumplimiento"] ||
+                            eviUploading
+                          }
+                          aria-disabled={
+                            !canEditCamposEntidadSeguimiento ||
+                            !!ro["evidencia_cumplimiento"] ||
+                            eviUploading
+                          }
+                          aria-describedby="evidencia-help"
+                          onChange={async (e) => {
+                            const inputEl = e.currentTarget;
+                            const file = inputEl.files?.[0];
+                            if (!file) return;
 
-                          if (file.size > MAX_UPLOAD_BYTES) {
-                            setEviError(
-                              `El archivo supera ${MAX_UPLOAD_MB} MB. Reduce el tamaño y vuelve a intentar.`
-                            );
-                            inputEl.value = "";
-                            return;
-                          }
-                          try {
-                            setEviError(null);
-                            setEviUploading(true);
-                            const { href } = await uploadEvidence(file);
-                            onChange("evidencia_cumplimiento", href as any);
-                          } catch (err: any) {
-                            setEviError(err?.message || "Error subiendo evidencia");
-                          } finally {
-                            setEviUploading(false);
+                            if (file.size > MAX_UPLOAD_BYTES) {
+                              setEviError(
+                                `El archivo supera ${MAX_UPLOAD_MB} MB. Reduce el tamaño y vuelve a intentar.`
+                              );
+                              inputEl.value = "";
+                              return;
+                            }
                             try {
-                              if (inputEl) inputEl.value = "";
-                            } catch {}
-                          }
-                        }}
-                        className="block w-full text-sm text-gray-900 file:mr-4 file:rounded-xl file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold hover:file:bg-gray-200 disabled:opacity-60"
-                      />
+                              setEviError(null);
+                              setEviUploading(true);
+                              const { href } = await uploadEvidence(file);
+                              onChange("evidencia_cumplimiento", href as any);
+                            } catch (err: any) {
+                              setEviError(err?.message || "Error subiendo evidencia");
+                            } finally {
+                              setEviUploading(false);
+                              try {
+                                if (inputEl) inputEl.value = "";
+                              } catch {}
+                            }
+                          }}
+                          className="block w-full text-sm text-gray-900 file:mr-4 file:rounded-xl file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold hover:file:bg-gray-200 disabled:opacity-60"
+                        />
+                        <button
+                          type="button"
+                          className="rounded-full border-0 bg-transparent p-1 text-gray-500 transition hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          title={`Formatos: imágenes (JPG, PNG), PDF, Excel (XLS/XLSX/CSV) y comprimidos (ZIP, RAR, 7Z). Máximo ${MAX_UPLOAD_MB} MB. Para múltiples archivos, súbelos comprimidos.`}
+                          aria-label={`Formatos permitidos y tamaño máximo de evidencia. Máximo ${MAX_UPLOAD_MB} MB.`}
+                          onClick={() => setEviHelpOpen((v) => !v)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setEviHelpOpen((v) => !v);
+                            }
+                          }}
+                        >
+                          <FiInfo className="h-4 w-4" />
+                        </button>
+                        {eviHelpOpen && (
+                          <div className="absolute right-0 top-full z-10 mt-2 w-80 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700 shadow-lg">
+                            <p className="mt-1">
+                             <b>Formatos:</b> imágenes (JPG, PNG), PDF, Excel (XLS/XLSX/CSV) y comprimidos (ZIP, RAR, 7Z).
+                            </p>
+                            <p className="mt-1">
+                              <b>Tamaño máximo: {MAX_UPLOAD_MB} MB.</b> Si tienes múltiples archivos, súbelos en un comprimido.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <span id="evidencia-help" className="sr-only">
+                        Formatos permitidos: imágenes JPG, PNG; PDF; Excel XLS, XLSX, CSV; y comprimidos ZIP, RAR, 7Z. Tamaño máximo {MAX_UPLOAD_MB} megabytes. Para múltiples evidencias, súbelas en un archivo comprimido.
+                      </span>
                       {eviUploading && (
                         <p className="text-xs text-gray-500">Subiendo evidencia…</p>
                       )}
                       {eviError && (
                         <p className="text-xs text-red-600">{eviError}</p>
                       )}
-                      <p className="text-xs text-gray-500">
-                        Formatos permitidos: PDF, DOC o DOCX.
-                      </p>
                     </>
                   );
                 }
