@@ -24,7 +24,8 @@ export default function Reportes() {
             src={SHINY_URL}
             title="Shiny embebido"
             minHeight={760}
-            allow="clipboard-write; fullscreen"
+            allow="clipboard-write; fullscreen; download; allow-downloads"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
           />
           <p className="mt-3 text-xs text-gray-500">
             * Si no se visualiza, ábrelo en una ventana nueva.
