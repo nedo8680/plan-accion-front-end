@@ -71,7 +71,7 @@ const DATA: Section[] = [
 ];
 
 /* ======================== UI Helpers ======================== */
-function LinkButton({ item }: { item: LinkItem }) {
+function LinkButton({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item: LinkItem; onPqrChange?: (id: number | null, password: string) => void; pqrFuncionarioId?: number | null; pqrPassword?: string | null }) {
   const base =
     "w-full rounded-md px-4 py-3 text-left text-sm font-medium transition shadow focus:outline-none focus:ring-2 focus:ring-yellow-300";
   if (!item.url) {
@@ -86,34 +86,131 @@ function LinkButton({ item }: { item: LinkItem }) {
       </button>
     );
   }
+  // special case: Calificación de PQRSD -> render the control for PQRSD (select + password)
+  if (item.label === "Calificación de PQRSD") {
+    return <PqrControl item={item} onPqrChange={onPqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />;
+  }
+
   return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
-      title={item.label}
-    >
-      {item.label}
-    </a>
+    <div className="relative flex flex-col min-h-[168px]">
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
+        title={item.label}
+      >
+        {item.label}
+      </a>
+    </div>
   );
 }
 
-function SubSectionBlock({ sub }: { sub: SubSection }) {
+function SubSectionBlock({ sub, onPqrChange, pqrFuncionarioId, pqrPassword }: { sub: SubSection; onPqrChange?: (id: number | null, password: string) => void; pqrFuncionarioId?: number | null; pqrPassword?: string | null }) {
   return (
     <div className="mt-4">
       <h4 className="text-sm font-semibold text-gray-700">{sub.title}</h4>
       <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {sub.items.map((it) => (
-          <LinkButton key={it.label} item={it} />
+          <LinkButton key={it.label} item={it} onPqrChange={onPqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />
         ))}
       </div>
     </div>
   );
 }
 
+function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item: LinkItem; onPqrChange?: (id: number | null, password: string) => void; pqrFuncionarioId?: number | null; pqrPassword?: string | null }) {
+  const base =
+    "w-full rounded-md px-4 py-3 text-left text-sm font-medium transition shadow focus:outline-none focus:ring-2 focus:ring-yellow-300";
+
+  const [open, setOpen] = React.useState(false);
+  const [funcionarioId, setFuncionarioId] = React.useState<number | null>(pqrFuncionarioId ?? 1);
+  const [password, setPassword] = React.useState<string>(pqrPassword ?? "");
+
+  React.useEffect(() => {
+    if (typeof pqrFuncionarioId !== "undefined") setFuncionarioId(pqrFuncionarioId ?? null);
+    if (typeof pqrPassword !== "undefined") setPassword(pqrPassword ?? "");
+  }, [pqrFuncionarioId, pqrPassword]);
+
+  const buildUrl = () => {
+    const id = funcionarioId ?? "";
+    const pwd = password ?? "";
+    return `${item.url}&d[/data/mod1/gv4/v4]=${encodeURIComponent(String(id))}&d[/data/mod1/gv4/v4.1]=${encodeURIComponent(String(pwd))}`;
+  };
+
+  return (
+    <div className="relative flex flex-col min-h-[168px]">
+      <div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
+        >
+          {item.label}
+        </button>
+      </div>
+
+      <div className={`${open ? "visible" : "invisible pointer-events-none"} mt-auto rounded-md border bg-gray-50 p-3 shadow-sm`}>
+        <label className="block text-sm font-medium text-gray-700">Funcionario</label>
+        <select
+          aria-label="Funcionario"
+          value={funcionarioId ?? undefined}
+          onChange={(e) => {
+            const id = Number(e.target.value) || null;
+            setFuncionarioId(id);
+            onPqrChange?.(id, password);
+          }}
+          className="mt-1 w-full rounded-md border px-2 py-2 text-sm"
+        >
+          <option value={1}>Jairo Rico</option>
+          <option value={2}>Sandra Avila</option>
+          <option value={3}>Andrés Villamil</option>
+        </select>
+
+        <label className="mt-3 block text-sm font-medium text-gray-700">Contraseña (numérica)</label>
+        <input
+          type="number"
+          aria-label="Contraseña"
+          value={password}
+          onChange={(e) => {
+            const val = e.target.value;
+            setPassword(val);
+            onPqrChange?.(funcionarioId, val);
+          }}
+          className="mt-1 w-full rounded-md border px-2 py-2 text-sm"
+          placeholder="12345"
+        />
+
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            className={`inline-flex items-center rounded-md border bg-[#D32D37] px-3 py-2 text-sm font-medium text-white hover:bg-yellow-400 hover:text-gray-900 ${!password || !funcionarioId ? "opacity-50 pointer-events-none" : ""}`}
+            onClick={() => {
+              const url = buildUrl();
+              const popup = window.open(url, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
+              if (popup) popup.focus();
+              console.log("PQRSD popup open: funcionarioId=", funcionarioId, "password=", password, "url=", url);
+            }}
+            title="Abrir Encuestas"
+          >
+            Abrir Encuestas
+          </button>
+
+          <button
+            type="button"
+            className="inline-flex items-center rounded-md border bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            onClick={() => setOpen(false)}
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Acordeón accesible con <details>/<summary>
-function GroupAccordion({ group }: { group: Group }) {
+function GroupAccordion({ group, onPqrChange, pqrFuncionarioId, pqrPassword }: { group: Group; onPqrChange?: (id: number | null, password: string) => void; pqrFuncionarioId?: number | null; pqrPassword?: string | null }) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -145,14 +242,14 @@ function GroupAccordion({ group }: { group: Group }) {
       {group.items?.length ? (
         <div className="mt-3 px-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {group.items.map((it) => (
-            <LinkButton key={it.label} item={it} />
+            <LinkButton key={it.label} item={it} onPqrChange={onPqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />
           ))}
         </div>
       ) : null}
 
       <div className="px-4 pb-4">
         {group.subsections.map((sub) => (
-          <SubSectionBlock key={sub.title} sub={sub} />
+          <SubSectionBlock key={sub.title} sub={sub} onPqrChange={onPqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />
         ))}
       </div>
     </details>
@@ -219,6 +316,15 @@ export default function Captura() {
 
   const SECTIONS = isAdmin || isAuditor ? DATA : filteredData;
 
+  // PQRSD selection state: store selected funcionario id and password
+  const [pqrFuncionarioId, setPqrFuncionarioId] = React.useState<number | null>(1);
+  const [pqrPassword, setPqrPassword] = React.useState<string>("");
+
+  const handlePqrChange = (id: number | null, password: string) => {
+    setPqrFuncionarioId(id);
+    setPqrPassword(password);
+  };
+
   return (
     <PageBg>
       <Header />
@@ -238,7 +344,7 @@ export default function Captura() {
               {section.items?.length ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {section.items.map((it) => (
-                    <LinkButton key={it.label} item={it} />
+                    <LinkButton key={it.label} item={it} onPqrChange={handlePqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />
                   ))}
                 </div>
               ) : null}
@@ -252,7 +358,7 @@ export default function Captura() {
                   {sub.items?.length ? (
                     <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {sub.items.map((it) => (
-                        <LinkButton key={it.label} item={it} />
+                        <LinkButton key={it.label} item={it} onPqrChange={handlePqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />
                       ))}
                     </div>
                   ) : null}
@@ -267,6 +373,9 @@ export default function Captura() {
                         subsections: nested.subsections ?? [],
                         items: nested.items ?? [],
                       }}
+                      onPqrChange={handlePqrChange}
+                      pqrFuncionarioId={pqrFuncionarioId}
+                      pqrPassword={pqrPassword}
                     />
                   ))}
                 </div>
@@ -274,7 +383,7 @@ export default function Captura() {
 
               {/* NUEVO: Grupos (acordeón) */}
               {section.groups?.map((group) => (
-                <GroupAccordion key={group.title} group={group} />
+                <GroupAccordion key={group.title} group={group} onPqrChange={handlePqrChange} pqrFuncionarioId={pqrFuncionarioId} pqrPassword={pqrPassword} />
               ))}
             </section>
           ))}
