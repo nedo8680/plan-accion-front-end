@@ -92,17 +92,15 @@ function LinkButton({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
   }
 
   return (
-    <div className="relative flex flex-col min-h-[168px]">
-      <a
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
-        title={item.label}
-      >
-        {item.label}
-      </a>
-    </div>
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
+      title={item.label}
+    >
+      {item.label}
+    </a>
   );
 }
 
@@ -255,11 +253,46 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     return `${item.url}&d[/data/mod1/gv4/v4]=${encodeURIComponent(String(id))}&d[/data/mod1/gv4/v4.1]=${encodeURIComponent(String(pwd))}&return_url=${returnUrl}`;
   };
 
+  const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+  const selectRef = React.useRef<HTMLSelectElement | null>(null);
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
+
+  // close on outside click
+  React.useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!open) return;
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (buttonRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    window.addEventListener('mousedown', onDocClick);
+    return () => window.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  // close on ESC
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && open) setOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // focus select when open
+  React.useEffect(() => {
+    if (open) {
+      setTimeout(() => selectRef.current?.focus(), 100);
+    }
+  }, [open]);
+
   return (
-    <div className="relative flex flex-col min-h-[168px]">
+    <div className="relative w-full">
       <div>
         <button
           type="button"
+          ref={buttonRef}
+          aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className={`${base} border bg-[#D32D37] text-white hover:bg-yellow-400 hover:text-gray-900`}
         >
@@ -267,10 +300,25 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
         </button>
       </div>
 
-      <div className={`${open ? "visible" : "invisible pointer-events-none"} mt-auto rounded-md border bg-gray-50 p-3 shadow-sm`}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-hidden={!open}
+        className="rounded-md border bg-gray-50 p-3 shadow-sm overflow-hidden absolute left-0 z-40"
+        style={{
+          top: 'calc(100% + 8px)',
+          minWidth: '240px',
+          width: '100%',
+          transform: open ? 'translateY(0)' : 'translateY(-8px)',
+          opacity: open ? 1 : 0,
+          transition: 'transform 200ms ease, opacity 180ms ease',
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+      >
         <label className="block text-sm font-medium text-gray-700">Funcionario</label>
         <select
           aria-label="Funcionario"
+          ref={selectRef}
           value={funcionarioId ?? undefined}
           onChange={(e) => {
             const id = Number(e.target.value) || null;
