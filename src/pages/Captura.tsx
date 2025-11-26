@@ -197,7 +197,7 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     let pollId: number | null = null;
     const redirectHosts = ["google.com", "www.google.com"];
     const MAX_RELOAD_ATTEMPTS = 4;
-    const RELOAD_COOLDOWN_MS = 5000; // ms between automatic reloads to avoid loop
+    const RELOAD_COOLDOWN_MS = 15000; // ms between automatic reloads to avoid loop (increased from 5s to 15s)
     function checkPopupLocation() {
       if (!popupRef.current || popupRef.current.closed) return;
       try {
@@ -234,7 +234,8 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     }
 
     // Start polling only while popup exists
-    pollId = window.setInterval(() => checkPopupLocation(), 1000);
+    // poll every few seconds to avoid rapid checks; increased to 3s
+    pollId = window.setInterval(() => checkPopupLocation(), 3000);
     return () => {
       if (pollId) window.clearInterval(pollId);
     };
@@ -283,18 +284,21 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
           <option value={3}>Andrés Villamil</option>
         </select>
 
-        <label className="mt-3 block text-sm font-medium text-gray-700">Contraseña (numérica)</label>
+        <label className="mt-3 block text-sm font-medium text-gray-700">Número de Validación</label>
         <input
-          type="number"
+          type="password"
           aria-label="Contraseña"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={password}
           onChange={(e) => {
-            const val = e.target.value;
+            // enforce numeric-only value while storing it as a string
+            const val = e.target.value.replace(/\D/g, "");
             setPassword(val);
             onPqrChange?.(funcionarioId, val);
           }}
           className="mt-1 w-full rounded-md border px-2 py-2 text-sm"
-          placeholder="12345"
+          placeholder="*****"
         />
 
         <div className="mt-3 flex gap-2">
