@@ -53,7 +53,7 @@ const DATA: Section[] = [
   {
     title: "Prestación del Servicio",
     items: [
-      { label: "Calificación de PQRSD", url: "https://v3.proyectamos-odk.com/-/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7" },
+      { label: "Calificación de PQRSD", url: "https://v3.proyectamos-odk.com/-/single/wvK5vmKyy0Emb2Cw7qE24PKqF7fb1m8?st=shDv8Tab2VoXIT7y5z8LHCY8yUGXo2X610QkerUzeO7CFHtMhZT19kKOD79ZM2a7" },
       { label: "Calificación de Procesos", url: "https://v3.proyectamos-odk.com/-/ra1YVOFwob1cKdT9MEKym2TGL07D8l7?st=Mns9zPLD7nxnv95FozmNc9ZDkY9xrEin4aiXJBmD3ib8Ct3KLRq0sNeWUmtfBYVz" },
       { label: "Capacidad instalada", url: "https://v3.proyectamos-odk.com/-/kfGUXkKFWCvKL0x0uekN7hdfen98YYP?st=rkJpo9UkDVoyeTnDa3!61w$hzM85khM3aKqbudECZ8HICdiU1kKuIC7eHtG!xXVI&d[/data/mod1/gp1/p0]=1" },
     ],
@@ -127,6 +127,119 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
   const [funcionarioId, setFuncionarioId] = React.useState<number | null>(pqrFuncionarioId ?? 1);
   const [password, setPassword] = React.useState<string>(pqrPassword ?? "");
 
+  // popup management refs
+  const popupRef = React.useRef<Window | null>(null);
+  const popupUrlRef = React.useRef<string | null>(null);
+  const lastReadableHostRef = React.useRef<string | null>(null);
+  const reloadAttemptsRef = React.useRef<number>(0);
+  const allowedOrigins = React.useMemo(() => {
+    try {
+      const origin = new URL(item.url ?? "").origin;
+      return [origin, window.location.origin];
+    } catch {
+      return ["https://v3.proyectamos-odk.com", window.location.origin];
+    }
+  }, [item.url]);
+
+  React.useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      // validate origin
+      if (!allowedOrigins.includes(e.origin)) return;
+      const data = e.data;
+      if (data && data.type === "PROYECTAMOS_SURVEY_SUBMIT" && Number(data.status) === 201) {
+        // reload or reopen popup
+        const reloadUrl = popupUrlRef.current ?? buildUrl();
+        if (popupRef.current && !popupRef.current.closed) {
+          try {
+            popupRef.current.location.href = reloadUrl;
+            popupRef.current.focus();
+          } catch {
+            try { popupRef.current.close(); } catch {}
+            popupRef.current = window.open(reloadUrl, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
+            if (popupRef.current) popupRef.current.focus();
+          }
+        } else {
+          popupRef.current = window.open(reloadUrl, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
+          if (popupRef.current) popupRef.current.focus();
+        }
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [allowedOrigins, item.url, funcionarioId, password]);
+
+  const openPopup = (url: string) => {
+    popupUrlRef.current = url;
+    popupRef.current = window.open(url, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
+    if (popupRef.current) popupRef.current.focus();
+    // reset tracking state
+    lastReadableHostRef.current = null;
+    reloadAttemptsRef.current = 0;
+  };
+
+  const reloadPopup = () => {
+    const url = popupUrlRef.current ?? buildUrl();
+    if (!popupRef.current || popupRef.current.closed) {
+      openPopup(url);
+      return;
+    }
+    try {
+      popupRef.current.location.href = url;
+      popupRef.current.focus();
+    } catch {
+      try { popupRef.current.close(); } catch {}
+      openPopup(url);
+    }
+  };
+
+  // Polling to detect when the popup navigates to a known third-party URL (e.g., google.com) and then force-refresh/reopen.
+  React.useEffect(() => {
+    let pollId: number | null = null;
+    const redirectHosts = ["google.com", "www.google.com"];
+    const MAX_RELOAD_ATTEMPTS = 4;
+    const RELOAD_COOLDOWN_MS = 5000; // ms between automatic reloads to avoid loop
+    function checkPopupLocation() {
+      if (!popupRef.current || popupRef.current.closed) return;
+      try {
+        const href = popupRef.current.location.href;
+        if (href) {
+          const host = popupRef.current.location.hostname;
+          // save accessible host
+          lastReadableHostRef.current = host;
+          if (redirectHosts.includes(host)) {
+            // Found redirect target — close and re-open (force refresh)
+            if (reloadAttemptsRef.current < MAX_RELOAD_ATTEMPTS) {
+              reloadAttemptsRef.current += 1;
+              try { popupRef.current.close(); } catch {}
+              openPopup(popupUrlRef.current ?? buildUrl());
+              // cooldown: reset attempts after some time
+              setTimeout(() => {
+                reloadAttemptsRef.current = 0;
+              }, RELOAD_COOLDOWN_MS);
+            }
+          }
+        }
+      } catch (err) {
+        // reading href/hostname failed due to cross-origin; if we previously could read a host
+        // and now we can't, assume the popup navigated to an external origin (e.g. Google)
+        if (lastReadableHostRef.current && reloadAttemptsRef.current < MAX_RELOAD_ATTEMPTS) {
+          reloadAttemptsRef.current += 1;
+          try { popupRef.current?.close(); } catch {}
+          openPopup(popupUrlRef.current ?? buildUrl());
+          setTimeout(() => {
+            reloadAttemptsRef.current = 0;
+          }, RELOAD_COOLDOWN_MS);
+        }
+      }
+    }
+
+    // Start polling only while popup exists
+    pollId = window.setInterval(() => checkPopupLocation(), 1000);
+    return () => {
+      if (pollId) window.clearInterval(pollId);
+    };
+  }, []);
+
   React.useEffect(() => {
     if (typeof pqrFuncionarioId !== "undefined") setFuncionarioId(pqrFuncionarioId ?? null);
     if (typeof pqrPassword !== "undefined") setPassword(pqrPassword ?? "");
@@ -135,7 +248,10 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
   const buildUrl = () => {
     const id = funcionarioId ?? "";
     const pwd = password ?? "";
-    return `${item.url}&d[/data/mod1/gv4/v4]=${encodeURIComponent(String(id))}&d[/data/mod1/gv4/v4.1]=${encodeURIComponent(String(pwd))}`;
+    // Build a return_url back to this app so the survey can redirect to a same-origin page
+    const parentOrigin = window.location.origin;
+    const returnUrl = encodeURIComponent(`${parentOrigin}/survey-complete.html?parent_origin=${encodeURIComponent(parentOrigin)}`);
+    return `${item.url}&d[/data/mod1/gv4/v4]=${encodeURIComponent(String(id))}&d[/data/mod1/gv4/v4.1]=${encodeURIComponent(String(pwd))}&return_url=${returnUrl}`;
   };
 
   return (
@@ -187,8 +303,7 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
             className={`inline-flex items-center rounded-md border bg-[#D32D37] px-3 py-2 text-sm font-medium text-white hover:bg-yellow-400 hover:text-gray-900 ${!password || !funcionarioId ? "opacity-50 pointer-events-none" : ""}`}
             onClick={() => {
               const url = buildUrl();
-              const popup = window.open(url, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
-              if (popup) popup.focus();
+              openPopup(url);
               console.log("PQRSD popup open: funcionarioId=", funcionarioId, "password=", password, "url=", url);
             }}
             title="Abrir Encuestas"
@@ -198,11 +313,12 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
 
           <button
             type="button"
-            className="inline-flex items-center rounded-md border bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            className={`inline-flex items-center rounded-md border bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 ${!popupRef.current ? "opacity-70" : ""}`}
             onClick={() => setOpen(false)}
           >
             Cancelar
           </button>
+          {/* manual refresh removed by request: the popup will auto-reload when redirect detected */}
         </div>
       </div>
     </div>
