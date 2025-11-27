@@ -122,6 +122,7 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     "w-full rounded-md px-4 py-3 text-left text-sm font-medium transition shadow focus:outline-none focus:ring-2 focus:ring-yellow-300";
 
   const [open, setOpen] = React.useState(false);
+  const [reopenBlocked, setReopenBlocked] = React.useState(false);
   const [funcionarioId, setFuncionarioId] = React.useState<number | null>(pqrFuncionarioId ?? 1);
   const [password, setPassword] = React.useState<string>(pqrPassword ?? "");
 
@@ -130,6 +131,9 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
   const popupUrlRef = React.useRef<string | null>(null);
   const lastReadableHostRef = React.useRef<string | null>(null);
   const reloadAttemptsRef = React.useRef<number>(0);
+  const surveyCompleteProcessingRef = React.useRef<boolean>(false);
+  const surveyCloseTimeoutRef = React.useRef<number | null>(null);
+  const surveyReopenTimeoutRef = React.useRef<number | null>(null);
   const allowedOrigins = React.useMemo(() => {
     try {
       const origin = new URL(item.url ?? "").origin;
@@ -145,30 +149,26 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
       if (!allowedOrigins.includes(e.origin)) return;
       const data = e.data;
       if (data && data.type === "PROYECTAMOS_SURVEY_SUBMIT" && Number(data.status) === 201) {
-        // reload or reopen popup
+        // When survey completes, show the completion page for a little while, then close and reopen.
         const reloadUrl = popupUrlRef.current ?? buildUrl();
-        if (popupRef.current && !popupRef.current.closed) {
-          try {
-            popupRef.current.location.href = reloadUrl;
-            popupRef.current.focus();
-          } catch {
-            try { popupRef.current.close(); } catch {}
-            popupRef.current = window.open(reloadUrl, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
-            if (popupRef.current) popupRef.current.focus();
-          }
-        } else {
-          popupRef.current = window.open(reloadUrl, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
-          if (popupRef.current) popupRef.current.focus();
-        }
+        triggerSurveyCompleteBehavior(reloadUrl);
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [allowedOrigins, item.url, funcionarioId, password]);
 
-  const openPopup = (url: string) => {
+  const openPopup = (url: string, name?: string) => {
     popupUrlRef.current = url;
-    popupRef.current = window.open(url, "pqrPopup", "width=1024,height=800,scrollbars=yes,resizable=yes");
+    console.log("PQRSD: opening popup to url=", url);
+    const popupName = name ?? "pqrPopup";
+    popupRef.current = window.open(url, popupName, "width=1024,height=800,scrollbars=yes,resizable=yes");
+    if (!popupRef.current) {
+      console.warn("PQRSD: window.open returned null — popup may be blocked");
+      setReopenBlocked(true);
+      return;
+    }
+    setReopenBlocked(false);
     if (popupRef.current) popupRef.current.focus();
     // reset tracking state
     lastReadableHostRef.current = null;
@@ -190,20 +190,96 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     }
   };
 
+  // Trigger the behavior for survey-complete: show for 3s, close, wait 1s, reopen
+  const triggerSurveyCompleteBehavior = (url?: string) => {
+    if (surveyCompleteProcessingRef.current) return;
+    surveyCompleteProcessingRef.current = true;
+    // clear previous timeouts if any
+    if (surveyCloseTimeoutRef.current) {
+      window.clearTimeout(surveyCloseTimeoutRef.current);
+      surveyCloseTimeoutRef.current = null;
+    }
+    if (surveyReopenTimeoutRef.current) {
+      window.clearTimeout(surveyReopenTimeoutRef.current);
+      surveyReopenTimeoutRef.current = null;
+    }
+    const finalUrl = url ?? popupUrlRef.current ?? buildUrl();
+    // Wait 3 seconds showing survey-continue, then close the current popup (if any)
+    surveyCloseTimeoutRef.current = window.setTimeout(() => {
+      try {
+        console.log("PQRSD: survey complete detected — closing current popup and preparing to open a new one");
+        if (popupRef.current && !popupRef.current.closed) {
+          try { popupRef.current.close(); } catch (err) { console.warn('PQRSD: popup close error', err); }
+          popupRef.current = null;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }, 3000);
+    // After 1s more, attempt to navigate popup back to survey URL if it still exists, otherwise open a new window
+    surveyReopenTimeoutRef.current = window.setTimeout(() => {
+      try {
+      console.log("PQRSD: reopening popup with finalUrl=", finalUrl);
+        // Reset last readable host so periodic polling can resume tracking
+        lastReadableHostRef.current = null;
+        // Reset reload attempts as this is intentional reopen
+        reloadAttemptsRef.current = 0;
+
+        // Attempt to open a new popup (must be a different popup). Use a unique name to ensure a new window.
+        try {
+          const popupName = `pqrPopup_${Date.now()}`;
+          const opened = window.open(finalUrl, popupName, "width=1024,height=800,scrollbars=yes,resizable=yes");
+          if (opened) {
+            popupRef.current = opened;
+            opened.focus();
+            setReopenBlocked(false);
+          } else {
+            // blocked — set a flag for the UI to show user a manual reopen
+            setReopenBlocked(true);
+          }
+        } catch (err) {
+          console.warn('PQRSD: popup reopen attempt failed', err);
+          setReopenBlocked(true);
+        }
+      } finally {
+        surveyCompleteProcessingRef.current = false;
+      }
+    }, 4000);
+  };
+
   // Polling to detect when the popup navigates to a known third-party URL (e.g., google.com) and then force-refresh/reopen.
   React.useEffect(() => {
     let pollId: number | null = null;
     const redirectHosts = ["google.com", "www.google.com"];
-    const MAX_RELOAD_ATTEMPTS = 4;
+    const MAX_RELOAD_ATTEMPTS = 400;
     const RELOAD_COOLDOWN_MS = 15000; // ms between automatic reloads to avoid loop (increased from 5s to 15s)
     function checkPopupLocation() {
-      if (!popupRef.current || popupRef.current.closed) return;
+      if (!popupRef.current || popupRef.current.closed) {
+        // If popup is closed, cancel any survey timeouts & stop processing flag
+        if (surveyCloseTimeoutRef.current) {
+          window.clearTimeout(surveyCloseTimeoutRef.current);
+          surveyCloseTimeoutRef.current = null;
+        }
+        if (surveyReopenTimeoutRef.current) {
+          window.clearTimeout(surveyReopenTimeoutRef.current);
+          surveyReopenTimeoutRef.current = null;
+        }
+        surveyCompleteProcessingRef.current = false;
+        return;
+      }
       try {
         const href = popupRef.current.location.href;
         if (href) {
           const host = popupRef.current.location.hostname;
           // save accessible host
           lastReadableHostRef.current = host;
+          const pathname = popupRef.current.location.pathname || popupRef.current.location.href;
+          // If the popup navigated to our survey-continue page (same origin), trigger reopen behavior
+          if (String(pathname).includes("survey-continue.html") || String(pathname).includes("survey-complete.html")) {
+            // Trigger timed close + reopen
+            triggerSurveyCompleteBehavior(popupUrlRef.current ?? buildUrl());
+            return; // bail early to avoid extra reload logic
+          }
           if (redirectHosts.includes(host)) {
             // Found redirect target — close and re-open (force refresh)
             if (reloadAttemptsRef.current < MAX_RELOAD_ATTEMPTS) {
@@ -244,11 +320,20 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     if (typeof pqrPassword !== "undefined") setPassword(pqrPassword ?? "");
   }, [pqrFuncionarioId, pqrPassword]);
 
+  // clean up any pending timeouts on unmount
+  React.useEffect(() => {
+    return () => {
+      if (surveyCloseTimeoutRef.current) window.clearTimeout(surveyCloseTimeoutRef.current);
+      if (surveyReopenTimeoutRef.current) window.clearTimeout(surveyReopenTimeoutRef.current);
+    };
+  }, []);
+
   const buildUrl = () => {
     const id = funcionarioId ?? "";
     const pwd = password ?? "";
     // Build a return_url back to this app so the survey can redirect to a same-origin page
     const parentOrigin = window.location.origin;
+    // Use a "non-closing" return URL so the popup isn't auto-closed by the survey page.
     const returnUrl = encodeURIComponent(`${parentOrigin}/survey-complete.html?parent_origin=${encodeURIComponent(parentOrigin)}`);
     return `${item.url}&d[/data/mod1/gv4/v4]=${encodeURIComponent(String(id))}&d[/data/mod1/gv4/v4.1]=${encodeURIComponent(String(pwd))}&return_url=${returnUrl}`;
   };
@@ -299,6 +384,20 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
           {item.label}
         </button>
       </div>
+      {reopenBlocked ? (
+        <div className="mt-2 text-sm text-yellow-700">
+          No se pudo abrir automáticamente la ventana emergente. <button
+            type="button"
+            className="underline font-medium"
+              onClick={() => {
+                  const url = buildUrl();
+                  const newName = `pqrPopup_${Date.now()}`;
+                  openPopup(url, newName);
+                  setReopenBlocked(false);
+                }}
+          >Reabrir ahora</button>
+        </div>
+      ) : null}
 
       <div
         ref={panelRef}
@@ -372,6 +471,25 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
           </button>
           {/* manual refresh removed by request: the popup will auto-reload when redirect detected */}
         </div>
+        {reopenBlocked ? (
+          <div className="mt-3 rounded-md border-l-4 border-yellow-400 bg-yellow-50 p-3 text-sm text-yellow-800">
+            <div>No se pudo abrir automáticamente la ventana emergente. Haz clic para reabrirla manualmente.</div>
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = buildUrl();
+                  const newName = `pqrPopup_${Date.now()}`;
+                  openPopup(url, newName);
+                  setReopenBlocked(false);
+                }}
+                className="inline-flex items-center rounded-md border bg-[#D32D37] px-3 py-2 text-sm font-medium text-white hover:bg-yellow-400 hover:text-gray-900"
+              >
+                Reabrir Ventana
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
