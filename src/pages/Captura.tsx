@@ -132,8 +132,13 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
   const lastReadableHostRef = React.useRef<string | null>(null);
   const reloadAttemptsRef = React.useRef<number>(0);
   const surveyCompleteProcessingRef = React.useRef<boolean>(false);
+  
+  // Timeouts refs
   const surveyCloseTimeoutRef = React.useRef<number | null>(null);
   const surveyReopenTimeoutRef = React.useRef<number | null>(null);
+  // NUEVO: Ref para el timeout del refresh forzado
+  const forceRefreshTimeoutRef = React.useRef<number | null>(null);
+
   const allowedOrigins = React.useMemo(() => {
     try {
       const origin = new URL(item.url ?? "").origin;
@@ -194,6 +199,7 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
   const triggerSurveyCompleteBehavior = (url?: string) => {
     if (surveyCompleteProcessingRef.current) return;
     surveyCompleteProcessingRef.current = true;
+    
     // clear previous timeouts if any
     if (surveyCloseTimeoutRef.current) {
       window.clearTimeout(surveyCloseTimeoutRef.current);
@@ -203,7 +209,14 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
       window.clearTimeout(surveyReopenTimeoutRef.current);
       surveyReopenTimeoutRef.current = null;
     }
+    // NUEVO: Limpiar timeout de refresh si existe
+    if (forceRefreshTimeoutRef.current) {
+      window.clearTimeout(forceRefreshTimeoutRef.current);
+      forceRefreshTimeoutRef.current = null;
+    }
+
     const finalUrl = url ?? popupUrlRef.current ?? buildUrl();
+    
     // Wait 3 seconds showing survey-continue, then close the current popup (if any)
     surveyCloseTimeoutRef.current = window.setTimeout(() => {
       try {
@@ -216,10 +229,11 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
         // ignore
       }
     }, 3000);
+
     // After 1s more, attempt to navigate popup back to survey URL if it still exists, otherwise open a new window
     surveyReopenTimeoutRef.current = window.setTimeout(() => {
       try {
-      console.log("PQRSD: reopening popup with finalUrl=", finalUrl);
+        console.log("PQRSD: reopening popup with finalUrl=", finalUrl);
         // Reset last readable host so periodic polling can resume tracking
         lastReadableHostRef.current = null;
         // Reset reload attempts as this is intentional reopen
@@ -233,6 +247,19 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
             popupRef.current = opened;
             opened.focus();
             setReopenBlocked(false);
+
+            // NUEVO: Lógica experimental para refrescar a los 0.5s
+            forceRefreshTimeoutRef.current = window.setTimeout(() => {
+              try {
+                if (popupRef.current && !popupRef.current.closed) {
+                  console.log("PQRSD: Forzando refresh (F5) en el popup...");
+                  popupRef.current.location.reload();
+                }
+              } catch (err) {
+                console.warn("PQRSD: No se pudo refrescar el popup automáticamente", err);
+              }
+            }, 500);
+
           } else {
             // blocked — set a flag for the UI to show user a manual reopen
             setReopenBlocked(true);
@@ -252,7 +279,7 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     let pollId: number | null = null;
     const redirectHosts = ["google.com", "www.google.com"];
     const MAX_RELOAD_ATTEMPTS = 400;
-    const RELOAD_COOLDOWN_MS = 15000; // ms between automatic reloads to avoid loop (increased from 5s to 15s)
+    const RELOAD_COOLDOWN_MS = 15000; 
     function checkPopupLocation() {
       if (!popupRef.current || popupRef.current.closed) {
         // If popup is closed, cancel any survey timeouts & stop processing flag
@@ -263,6 +290,11 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
         if (surveyReopenTimeoutRef.current) {
           window.clearTimeout(surveyReopenTimeoutRef.current);
           surveyReopenTimeoutRef.current = null;
+        }
+        // NUEVO: Limpiar también el refresh forzado si se cierra la ventana
+        if (forceRefreshTimeoutRef.current) {
+          window.clearTimeout(forceRefreshTimeoutRef.current);
+          forceRefreshTimeoutRef.current = null;
         }
         surveyCompleteProcessingRef.current = false;
         return;
@@ -308,7 +340,6 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     }
 
     // Start polling only while popup exists
-    // poll every few seconds to avoid rapid checks; increased to 3s
     pollId = window.setInterval(() => checkPopupLocation(), 3000);
     return () => {
       if (pollId) window.clearInterval(pollId);
@@ -325,6 +356,8 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
     return () => {
       if (surveyCloseTimeoutRef.current) window.clearTimeout(surveyCloseTimeoutRef.current);
       if (surveyReopenTimeoutRef.current) window.clearTimeout(surveyReopenTimeoutRef.current);
+      // NUEVO: Limpieza al desmontar
+      if (forceRefreshTimeoutRef.current) window.clearTimeout(forceRefreshTimeoutRef.current);
     };
   }, []);
 
@@ -370,7 +403,7 @@ function PqrControl({ item, onPqrChange, pqrFuncionarioId, pqrPassword }: { item
       setTimeout(() => selectRef.current?.focus(), 100);
     }
   }, [open]);
-
+  
   return (
     <div className="relative w-full">
       <div>
