@@ -1,5 +1,10 @@
 import type { Plan, Seguimiento } from "./useSeguimientos";
 
+export type SeguimientoExportGroup = {
+  plan: Plan | null;
+  seguimientos: Seguimiento[];
+};
+
 type ColKey =
   | keyof Seguimiento
   | "updated_by_email"
@@ -11,38 +16,40 @@ type ColKey =
 
 type Col = { key: ColKey; title: string };
 
-export function buildSeguimientoDataset(plan: Plan | null, items: Seguimiento[]) {
-  const cols: Col[] = [
-    { key: "id",                       title: "ID seguimiento" },
-    { key: "plan_id",                  title: "ID plan" },
-    { key: "estado",                   title: "Estado plan" },
-    { key: "nombre_entidad",           title: "Nombre entidad" },  
-    { key: "enlace_entidad",           title: "Enlace entidad" },   
-    { key: "indicador",                title: "Indicador" },
-    { key: "insumo_mejora",            title: "Insumo de mejora" },
-    { key: "tipo_accion_mejora",       title: "Tipo de acción" },
-    { key: "observacion_informe_calidad", title: "Acción recomendada (Informe calidad)" },
-    { key: "accion_mejora_planteada",  title: "Acción de mejora planteada" },
-    { key: "plan_descripcion_actividades", title: "Descripción de actividades (Plan)" },
-    { key: "plan_evidencia_cumplimiento",  title: "Evidencia plan (texto)" },
-    { key: "fecha_inicio",             title: "F. Inicio plan" },
-    { key: "fecha_final",              title: "F. Final plan" },
-    { key: "fecha_reporte",            title: "F. reporte seguimiento" },
-    { key: "seguimiento",              title: "Estado seguimiento" },
-    { key: "descripcion_actividades",  title: "Actividades realizadas" },
-    { key: "evidencia_cumplimiento",   title: "Evidencia (archivo/url)" },
-    { key: "observacion_calidad",      title: "Obs. DDCS" },
-    { key: "updated_by_email",         title: "Actualizado por" },
-    { key: "created_at",               title: "Creado en" },
-    { key: "updated_at",               title: "Actualizado en" },
-  ];
+const COLS: Col[] = [
+  { key: "id",                       title: "ID seguimiento" },
+  { key: "plan_id",                  title: "ID plan" },
+  { key: "estado",                   title: "Estado plan" },
+  { key: "nombre_entidad",           title: "Nombre entidad" },
+  { key: "enlace_entidad",           title: "Enlace entidad" },
+  { key: "indicador",                title: "Indicador" },
+  { key: "insumo_mejora",            title: "Insumo de mejora" },
+  { key: "tipo_accion_mejora",       title: "Tipo de acción" },
+  { key: "observacion_informe_calidad", title: "Acción recomendada (Informe calidad)" },
+  { key: "accion_mejora_planteada",  title: "Acción de mejora planteada" },
+  { key: "plan_descripcion_actividades", title: "Descripción de actividades (Plan)" },
+  { key: "plan_evidencia_cumplimiento",  title: "Evidencia plan (texto)" },
+  { key: "fecha_inicio",             title: "F. Inicio plan" },
+  { key: "fecha_final",              title: "F. Final plan" },
+  { key: "fecha_reporte",            title: "F. reporte seguimiento" },
+  { key: "seguimiento",              title: "Estado seguimiento" },
+  { key: "descripcion_actividades",  title: "Actividades realizadas" },
+  { key: "evidencia_cumplimiento",   title: "Evidencia (archivo/url)" },
+  { key: "observacion_calidad",      title: "Obs. DDCS" },
+  { key: "updated_by_email",         title: "Actualizado por" },
+  { key: "created_at",               title: "Creado en" },
+  { key: "updated_at",               title: "Actualizado en" },
+];
 
-  const rows = items.map((s) => ({
+function buildRowsForPlan(plan: Plan | null, items: Seguimiento[]) {
+  const source = items.length ? items : [{ plan_id: plan?.id ?? null } as Seguimiento];
+
+  return source.map((s) => ({
     id: s.id ?? "",
     plan_id: plan?.id ?? s.plan_id ?? "",
     estado: plan?.estado ?? "",
-    nombre_entidad: plan?.nombre_entidad ?? "",       
-    enlace_entidad: plan?.enlace_entidad ?? "",       
+    nombre_entidad: plan?.nombre_entidad ?? "",
+    enlace_entidad: plan?.enlace_entidad ?? "",
     indicador: plan?.indicador ?? s.indicador ?? "",
     insumo_mejora: plan?.insumo_mejora ?? s.insumo_mejora ?? "",
     tipo_accion_mejora: plan?.tipo_accion_mejora ?? s.tipo_accion_mejora ?? "",
@@ -53,27 +60,41 @@ export function buildSeguimientoDataset(plan: Plan | null, items: Seguimiento[])
     fecha_inicio: plan?.fecha_inicio ?? s.fecha_inicio ?? "",
     fecha_final: plan?.fecha_final ?? s.fecha_final ?? "",
     fecha_reporte: s.fecha_reporte ?? "",
-    seguimiento: s.seguimiento ?? "",
+    seguimiento: s.seguimiento ?? plan?.seguimiento ?? "",
     descripcion_actividades: s.descripcion_actividades ?? "",
     evidencia_cumplimiento: s.evidencia_cumplimiento ?? "",
-    observacion_calidad: s.observacion_calidad ?? "",
+    observacion_calidad: s.observacion_calidad ?? plan?.observacion_calidad ?? "",
     updated_by_email: (s as any).updated_by_email ?? "",
     created_at: s.created_at ?? "",
     updated_at: s.updated_at ?? "",
   }));
+}
 
-  const title = plan ? `Plan ${plan.id} — ${plan.nombre_entidad}` : "Seguimientos";
-  return { cols, rows, title };
+function buildDatasetForGroups(groups: SeguimientoExportGroup[]) {
+  const rows = groups.flatMap((g) => buildRowsForPlan(g.plan, g.seguimientos || []));
+  const title =
+    groups.length === 1 && groups[0]?.plan
+      ? `Plan ${groups[0].plan.id} — ${groups[0].plan.nombre_entidad}`
+      : "Seguimientos";
+  return { cols: COLS, rows, title };
+}
+
+export function buildSeguimientoDataset(plan: Plan | null, items: Seguimiento[]) {
+  return buildDatasetForGroups([{ plan, seguimientos: items }]);
 }
 
 export function exportSeguimientosCSV(plan: Plan | null, items: Seguimiento[]) {
-  const { cols, rows, title } = buildSeguimientoDataset(plan, items);
-  if (!rows.length) { alert("Este plan no tiene seguimientos para exportar."); return; }
+  exportAllSeguimientosCSV([{ plan, seguimientos: items }]);
+}
+
+export function exportAllSeguimientosCSV(groups: SeguimientoExportGroup[]) {
+  const { cols, rows, title } = buildDatasetForGroups(groups);
+  if (!rows.length) { alert("No hay datos para exportar."); return; }
 
   const headers = cols.map(c => c.title);
   const esc = (val: any) => {
     const v = (val ?? "").toString().replace(/\r?\n|\r/g, " ").trim();
-    return /[\",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
   };
   const csv = [
     headers.join(","),
@@ -92,8 +113,12 @@ export function exportSeguimientosCSV(plan: Plan | null, items: Seguimiento[]) {
 }
 
 export async function exportSeguimientosXLSX(plan: Plan | null, items: Seguimiento[]) {
-  const { cols, rows, title } = buildSeguimientoDataset(plan, items);
-  if (!rows.length) { alert("Este plan no tiene seguimientos para exportar."); return; }
+  await exportAllSeguimientosXLSX([{ plan, seguimientos: items }]);
+}
+
+export async function exportAllSeguimientosXLSX(groups: SeguimientoExportGroup[]) {
+  const { cols, rows, title } = buildDatasetForGroups(groups);
+  if (!rows.length) { alert("No hay datos para exportar."); return; }
 
   const xlsx = await import("xlsx");
   const head = [cols.map(c => c.title)];
@@ -129,8 +154,12 @@ export async function exportSeguimientosXLSX(plan: Plan | null, items: Seguimien
 }
 
 export async function exportSeguimientosPDF(plan: Plan | null, items: Seguimiento[]) {
-  const { cols, rows, title } = buildSeguimientoDataset(plan, items);
-  if (!rows.length) { alert("Este plan no tiene seguimientos para exportar."); return; }
+  await exportAllSeguimientosPDF([{ plan, seguimientos: items }]);
+}
+
+export async function exportAllSeguimientosPDF(groups: SeguimientoExportGroup[]) {
+  const { cols, rows, title } = buildDatasetForGroups(groups);
+  if (!rows.length) { alert("No hay datos para exportar."); return; }
 
   const [{ default: jsPDF }, auto] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   // A3 para mayor ancho; haremos bloques de columnas apilados verticalmente
@@ -189,7 +218,7 @@ export async function exportSeguimientosPDF(plan: Plan | null, items: Seguimient
 
   let startY = margin + 12;
 
-  blocks.forEach((block, blockIdx) => {
+  blocks.forEach((block) => {
     const headChunk = [block.map((i) => head[0][i])];
     const bodyChunk = body.map((row) => block.map((i) => row[i]));
 

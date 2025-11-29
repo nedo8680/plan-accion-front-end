@@ -45,6 +45,7 @@ type Props = {
   value: UnifiedFormValue;
   onChange: <K extends keyof UnifiedFormValue>(key: K, value: UnifiedFormValue[K]) => void;
   readOnlyFields?: Record<string, boolean>;
+  missingPlanKeys?: string[];
 
   topbar?: React.ReactNode;
   header?: React.ReactNode;
@@ -68,6 +69,7 @@ export default function SeguimientoForm({
   planActions,
   onRequestNewPlanFromAction,
   usedIndicadores,
+  missingPlanKeys = [],
 }: Props) {
   const ro = readOnlyFields ?? {};
   const { user } = useAuth();
@@ -95,13 +97,13 @@ export default function SeguimientoForm({
   const estadoPlan = value.estado ?? "Pendiente";
   const hasSeguimientoActual = Boolean(value.id) || Boolean(value.fecha_reporte);
 
-  // Solo consideramos verdaderamente “Borrador” cuando aún no hay seguimiento creado
-  const isDraft = estadoPlan === "Borrador" && !hasSeguimientoActual;
+  const isDraftEstado = estadoPlan === "Borrador";
 
-  const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraft;
+  const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
 
-  // Bloque de seguimiento solo si hay plan y NO está en borrador
-  const isSeguimientoVisible = isSeguimientoBase && !isDraft;
+  // Bloque de seguimiento visible si hay plan y ya hay seguimiento creado o el plan no está en borrador
+  const isSeguimientoVisible =
+    isSeguimientoBase && (hasSeguimientoActual || !isDraftEstado);
 
   const estadoSeguimiento = (value.seguimiento as string) || "Pendiente";
 
@@ -114,9 +116,9 @@ export default function SeguimientoForm({
   const canEditSeguimientoEstado = isAdmin || isAuditor;
 
   // Bloque Plan: editable mientras el plan esté en Borrador
-  const canEditPlanBlock = canEditCamposEntidad && isDraft;
+  const canEditPlanBlock = canEditCamposEntidad && isDraftEstado;
   const canEditNombreEntidad = false;
-  const canEditEnlaceEntidad = canEditCamposEntidad && isDraft;
+  const canEditEnlaceEntidad = canEditCamposEntidad && isDraftEstado;
 
   // Estado liviano para feedback de upload
   const [eviUploading, setEviUploading] = React.useState(false);
@@ -162,6 +164,45 @@ export default function SeguimientoForm({
     []
   );
 
+  const planFieldRefs: Record<string, React.RefObject<any>> = React.useMemo(
+    () => ({
+      enlace_entidad: React.createRef<HTMLInputElement>(),
+      indicador: React.createRef<HTMLSelectElement | HTMLInputElement>(),
+      insumo_mejora: React.createRef<HTMLSelectElement>(),
+      tipo_accion_mejora: React.createRef<HTMLSelectElement>(),
+      observacion_informe_calidad: React.createRef<HTMLTextAreaElement>(),
+      accion_mejora_planteada: React.createRef<HTMLInputElement>(),
+      plan_descripcion_actividades: React.createRef<HTMLTextAreaElement>(),
+      plan_evidencia_cumplimiento: React.createRef<HTMLTextAreaElement>(),
+      fecha_inicio: React.createRef<HTMLInputElement>(),
+      fecha_final: React.createRef<HTMLInputElement>(),
+    }),
+    []
+  );
+
+  const hasPlanError = (key: string) => missingPlanKeys.includes(key);
+
+  React.useEffect(() => {
+    if (!missingPlanKeys.length) return;
+    const order = [
+      "enlace_entidad",
+      "indicador",
+      "insumo_mejora",
+      "tipo_accion_mejora",
+      "observacion_informe_calidad",
+      "accion_mejora_planteada",
+      "plan_descripcion_actividades",
+      "plan_evidencia_cumplimiento",
+      "fecha_inicio",
+      "fecha_final",
+    ];
+    const next = order.find((k) => missingPlanKeys.includes(k));
+    if (next && planFieldRefs[next]?.current) {
+      planFieldRefs[next].current.focus?.();
+      planFieldRefs[next].current.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    }
+  }, [missingPlanKeys, planFieldRefs]);
+
   // nombre_entidad desde el usuario cuando el rol es entidad
   React.useEffect(() => {
     if (!entidadFromUser) return;
@@ -191,7 +232,7 @@ export default function SeguimientoForm({
     return parts.length;
   }, [value.accion_mejora_planteada]);
 
-  const hasMultipleActions = multiActionCount >= 2 && isDraft;
+  const hasMultipleActions = multiActionCount >= 2 && isDraftEstado;
 
   const usedIndicadoresSet = React.useMemo(
     () => new Set((usedIndicadores ?? []).filter(Boolean)),
@@ -293,11 +334,14 @@ export default function SeguimientoForm({
         </label>
         <div className="md:col-span-2">
           <input
-            className="w-full"
             value={value.enlace_entidad ?? ""}
             onChange={(e) => onChange("enlace_entidad", e.target.value)}
             disabled={!canEditEnlaceEntidad || !!ro["enlace_entidad"]}
             aria-disabled={!canEditEnlaceEntidad || !!ro["enlace_entidad"]}
+            required={canEditEnlaceEntidad}
+            ref={planFieldRefs.enlace_entidad}
+            aria-invalid={hasPlanError("enlace_entidad")}
+            className={`w-full ${hasPlanError("enlace_entidad") ? "border border-red-500 bg-red-50" : ""}`}
           />
         </div>
       </div>
@@ -306,7 +350,7 @@ export default function SeguimientoForm({
       <fieldset className="space-y-3 rounded-md border border-gray-300 p-3">
         <legend className="px-2 text-sm font-semibold text-gray-700">
           Plan de mejoramiento
-          {isDraft && (
+          {isDraftEstado && (
             <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
               {estadoPlan}
             </span>
@@ -331,11 +375,14 @@ export default function SeguimientoForm({
 
                   return (
                     <select
-                      className="w-full"
+                      className={`w-full ${hasPlanError("indicador") ? "border border-red-500 bg-red-50" : ""}`}
                       value={currentIndicador}
                       onChange={handleIndicadorSelect}
                       disabled={!canEditIndicador}
                       aria-disabled={!canEditIndicador}
+                      required={canEditPlanBlock}
+                      ref={planFieldRefs.indicador as any}
+                      aria-invalid={hasPlanError("indicador")}
                     >
                       <option value="">-- Selecciona un indicador --</option>
 
@@ -380,11 +427,14 @@ export default function SeguimientoForm({
               </>
             ) : (
               <input
-                className="w-full"
+                className={`w-full ${hasPlanError("indicador") ? "border border-red-500 bg-red-50" : ""}`}
                 value={(value as any).indicador ?? ""}
                 onChange={(e) => onChange("indicador" as any, e.target.value)}
                 disabled={!canEditPlanBlock || !!ro["indicador"]}
                 aria-disabled={!canEditPlanBlock || !!ro["indicador"]}
+                required={canEditPlanBlock}
+                ref={planFieldRefs.indicador as any}
+                aria-invalid={hasPlanError("indicador")}
               />
             )}
           </div>
@@ -398,11 +448,14 @@ export default function SeguimientoForm({
           </label>
           <div className="md:col-span-2">
             <select
-              className="w-full"
+              className={`w-full ${hasPlanError("insumo_mejora") ? "border border-red-500 bg-red-50" : ""}`}
               value={value.insumo_mejora ?? ""}
               onChange={(e) => onChange("insumo_mejora", e.target.value as InsumoMejora)}
               disabled={!canEditPlanBlock || !!ro["insumo_mejora"]}
               aria-disabled={!canEditPlanBlock || !!ro["insumo_mejora"]}
+              required={canEditPlanBlock}
+              ref={planFieldRefs.insumo_mejora as any}
+              aria-invalid={hasPlanError("insumo_mejora")}
             >
               <option value="">-- Selecciona --</option>
               <option>Experencia en los canales de atención</option>
@@ -425,11 +478,14 @@ export default function SeguimientoForm({
           </label>
           <div className="md:col-span-2">
             <select
-              className="w-full"
+              className={`w-full ${hasPlanError("tipo_accion_mejora") ? "border border-red-500 bg-red-50" : ""}`}
               value={value.tipo_accion_mejora ?? ""}
               onChange={(e) => onChange("tipo_accion_mejora", e.target.value as TipoAccion)}
               disabled={!canEditPlanBlock || !!ro["tipo_accion_mejora"]}
               aria-disabled={!canEditPlanBlock || !!ro["tipo_accion_mejora"]}
+              required={canEditPlanBlock}
+              ref={planFieldRefs.tipo_accion_mejora as any}
+              aria-invalid={hasPlanError("tipo_accion_mejora")}
             >
               <option value="">-- Selecciona --</option>
               <option>Preventiva</option>
@@ -445,7 +501,7 @@ export default function SeguimientoForm({
           </label>
           <div className="md:col-span-2">
             <textarea
-              className="w-full min-h-24"
+              className={`w-full min-h-24 ${hasPlanError("observacion_informe_calidad") ? "border border-red-500 bg-red-50" : ""}`}
               value={value.observacion_informe_calidad ?? ""}
               onChange={(e) =>
                 onChange("observacion_informe_calidad", e.target.value)
@@ -454,6 +510,9 @@ export default function SeguimientoForm({
               aria-disabled={
                 !canEditPlanBlock || !!ro["observacion_informe_calidad"]
               }
+              required={canEditPlanBlock}
+              ref={planFieldRefs.observacion_informe_calidad as any}
+              aria-invalid={hasPlanError("observacion_informe_calidad")}
             />
           </div>
         </div>
@@ -466,12 +525,15 @@ export default function SeguimientoForm({
 
           <div className="md:col-span-2 space-y-2">
             <input
-              className="w-full"
+              className={`w-full ${hasPlanError("accion_mejora_planteada") ? "border border-red-500 bg-red-50" : ""}`}
               placeholder="Escribe la(s) acción(es) de mejora, separadas por ',' ';' '.'"
               value={value.accion_mejora_planteada ?? ""}
               onChange={(e) => onChange("accion_mejora_planteada", e.target.value)}
               disabled={!canEditPlanBlock || !!ro["accion_mejora_planteada"]}
               aria-disabled={!canEditPlanBlock || !!ro["accion_mejora_planteada"]}
+              required={canEditPlanBlock}
+              ref={planFieldRefs.accion_mejora_planteada}
+              aria-invalid={hasPlanError("accion_mejora_planteada")}
             />
 
             {hasMultipleActions && (
@@ -507,7 +569,7 @@ export default function SeguimientoForm({
           </label>
           <div className="md:col-span-2">
             <textarea
-              className="w-full min-h-28"
+              className={`w-full min-h-28 ${hasPlanError("plan_descripcion_actividades") ? "border border-red-500 bg-red-50" : ""}`}
               value={value.plan_descripcion_actividades ?? ""}
               onChange={(e) =>
                 onChange("plan_descripcion_actividades", e.target.value)
@@ -515,6 +577,9 @@ export default function SeguimientoForm({
               disabled={!canEditPlanBlock || !!ro["plan_descripcion_actividades"]}
               aria-disabled={!canEditPlanBlock || !!ro["plan_descripcion_actividades"]}
               maxLength={MAX_DESC_ACTIVIDADES}
+              required={canEditPlanBlock}
+              ref={planFieldRefs.plan_descripcion_actividades as any}
+              aria-invalid={hasPlanError("plan_descripcion_actividades")}
             />
             <p className="mt-1 text-xs text-gray-500 text-right">
               {(value.plan_descripcion_actividades?.length ?? 0)}/{MAX_DESC_ACTIVIDADES} caracteres
@@ -529,7 +594,7 @@ export default function SeguimientoForm({
           </label>
           <div className="md:col-span-2">
             <textarea
-              className="w-full min-h-28"
+              className={`w-full min-h-28 ${hasPlanError("plan_evidencia_cumplimiento") ? "border border-red-500 bg-red-50" : ""}`}
               value={value.plan_evidencia_cumplimiento ?? ""}
               onChange={(e) =>
                 onChange("plan_evidencia_cumplimiento", e.target.value)
@@ -537,6 +602,9 @@ export default function SeguimientoForm({
               disabled={!canEditPlanBlock || !!ro["plan_evidencia_cumplimiento"]}
               aria-disabled={!canEditPlanBlock || !!ro["plan_evidencia_cumplimiento"]}
               maxLength={MAX_PLAN_EVIDENCIA}
+              required={canEditPlanBlock}
+              ref={planFieldRefs.plan_evidencia_cumplimiento as any}
+              aria-invalid={hasPlanError("plan_evidencia_cumplimiento")}
             />
             <div className="mt-1 flex justify-between text-xs text-gray-500">
               <span>
@@ -557,12 +625,14 @@ export default function SeguimientoForm({
           <div className="md:col-span-2">
             <input
               type="date"
-              className="w-full"
+              className={`w-full ${hasPlanError("fecha_inicio") ? "border border-red-500 bg-red-50" : ""}`}
               required
               value={value.fecha_inicio ?? ""}
               onChange={(e) => onChange("fecha_inicio", e.target.value)}
               disabled={!canEditPlanBlock || !!ro["fecha_inicio"]}
               aria-disabled={!canEditPlanBlock || !!ro["fecha_inicio"]}
+              ref={planFieldRefs.fecha_inicio}
+              aria-invalid={hasPlanError("fecha_inicio")}
             />
           </div>
         </div>
@@ -574,11 +644,14 @@ export default function SeguimientoForm({
           <div className="md:col-span-2">
             <input
               type="date"
-              className="w-full"
+              className={`w-full ${hasPlanError("fecha_final") ? "border border-red-500 bg-red-50" : ""}`}
+              required={canEditPlanBlock}
               value={value.fecha_final ?? ""}
               onChange={(e) => onChange("fecha_final", e.target.value)}
               disabled={!canEditPlanBlock || !!ro["fecha_final"]}
               aria-disabled={!canEditPlanBlock || !!ro["fecha_final"]}
+              ref={planFieldRefs.fecha_final}
+              aria-invalid={hasPlanError("fecha_final")}
             />
           </div>
         </div>

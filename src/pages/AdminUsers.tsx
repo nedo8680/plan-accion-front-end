@@ -389,9 +389,9 @@ export default function AdminUsers() {
                 onChange={(e) => setRole(e.target.value as UserRole)}
                 className="w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
               >
-                <option value="entidad">entidad</option>
-                <option value="auditor">auditor</option>
-                <option value="admin">admin</option>
+                <option value="entidad">Entidad</option>
+                <option value="auditor">Evaluador</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
 
@@ -461,9 +461,9 @@ export default function AdminUsers() {
                             className="rounded-md border bg-white px-2 py-1 text-xs focus:outline-none focus:ring focus:ring-yellow-300"
                             disabled={currentUserId === r.id && r.role === "admin"}
                           >
-                            <option value="entidad">entidad</option>
-                            <option value="auditor">auditor</option>
-                            <option value="admin">admin</option>
+                            <option value="entidad">Entidad</option>
+                            <option value="auditor">Evaluador</option>
+                            <option value="admin">Admin</option>
                           </select>
                         </div>
                       </td>

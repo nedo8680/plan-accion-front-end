@@ -88,7 +88,7 @@ export default function PlanesSidebar({
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Planes</h3>
+        <h3 className="text-sm font-semibold">Acciones de mejora</h3>
         <button
           type="button"
           onClick={toggleCreatedOrder}

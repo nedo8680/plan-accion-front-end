@@ -107,6 +107,7 @@ export function useSeguimientos() {
 
   // FORM unificado
   const [form, setForm] = useState<UnifiedForm>(emptyForm());
+  const [planMissingKeys, setPlanMissingKeys] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -221,6 +222,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
   }
 
   async function setActive(idxOrId: number) {
+    setPlanMissingKeys([]);
     const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
     if (!plan) return;
 
@@ -262,6 +264,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
 
 
   function startNew() {
+    setPlanMissingKeys([]);
     setActivePlanId(null);
     setChildren([]);
     setForm(emptyForm());
@@ -316,10 +319,54 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     return createdWithIndicador.id;
   }
 
+  const planFieldLabels: Record<string, string> = {
+    enlace_entidad: "Enlace de la entidad",
+    indicador: "Indicador",
+    insumo_mejora: "Insumo de mejora",
+    tipo_accion_mejora: "Tipo de acción de mejora",
+    observacion_informe_calidad: "Acción recomendada",
+    accion_mejora_planteada: "Acción de mejora planteada",
+    plan_descripcion_actividades: "Descripción de las actividades",
+    plan_evidencia_cumplimiento: "Evidencia de cumplimiento",
+    fecha_inicio: "Fecha inicio",
+    fecha_final: "Fecha final",
+  };
+
+  function collectPlanFieldGaps(base: UnifiedForm, requirePlan: boolean): string[] {
+    if (!requirePlan) return [];
+    const isBlank = (v: any) =>
+      v === null ||
+      v === undefined ||
+      (typeof v === "string" && v.trim() === "");
+
+    const missing: string[] = [];
+    if (isBlank(base.enlace_entidad)) missing.push("enlace_entidad");
+    if (isBlank(base.indicador)) missing.push("indicador");
+    if (isBlank(base.insumo_mejora)) missing.push("insumo_mejora");
+    if (isBlank(base.tipo_accion_mejora)) missing.push("tipo_accion_mejora");
+    if (isBlank(base.observacion_informe_calidad)) missing.push("observacion_informe_calidad");
+    if (isBlank(base.accion_mejora_planteada)) missing.push("accion_mejora_planteada");
+    if (isBlank(base.plan_descripcion_actividades)) missing.push("plan_descripcion_actividades");
+    if (isBlank(base.plan_evidencia_cumplimiento)) missing.push("plan_evidencia_cumplimiento");
+    if (isBlank(base.fecha_inicio)) missing.push("fecha_inicio");
+    if (isBlank(base.fecha_final)) missing.push("fecha_final");
+
+    return missing;
+  }
 
   async function saveCurrent(overrides?: Partial<UnifiedForm>) {
     const base = overrides ? { ...form, ...overrides } : form;
+    setPlanMissingKeys([]);
     if (!base.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
+    const prevEstado = form.estado ?? "Borrador";
+    const shouldValidatePlan = prevEstado === "Borrador" || !form.plan_id;
+    const missingPlanFields = collectPlanFieldGaps(base, shouldValidatePlan);
+    if (missingPlanFields.length) {
+      setPlanMissingKeys(missingPlanFields);
+      const labels = missingPlanFields.map((k) => planFieldLabels[k] || k);
+      alert(`Todos los campos son requeridos`);
+      return null;
+    }
     const planId = await ensurePlanExists();
     
 
@@ -418,6 +465,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       enlace_entidad: base.enlace_entidad ?? "",
       estado: nextEstado ?? prev.estado ?? null,
     }));
+    setPlanMissingKeys([]);
 
     // actualizar también la lista de planes (la que usa PlanesSidebar)
     setPlans((prev) =>
@@ -639,6 +687,29 @@ async function removeById(id: number) {
   const pagerIndex = activePlanId ? indexInChildren : 0;
   const pagerTotal = activePlanId ? Math.max(1, children.length || 1) : 1;
 
+  async function loadSeguimientosForExport() {
+    const results: { plan: Plan; seguimientos: Seguimiento[] }[] = [];
+    const targets = sortedPlans.length ? sortedPlans : plans;
+    for (const plan of targets) {
+      if (!plan?.id) continue;
+      let segs: Seguimiento[] = [];
+      try {
+        const data = await api(`/seguimiento/${plan.id}/seguimiento`);
+        segs = Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error(`useSeguimientos: error cargando seguimientos para plan ${plan.id}`, e);
+      }
+      const normalized = segs.map((s) => ({
+        ...s,
+        entidad: s.entidad ?? plan.nombre_entidad,
+        accion_mejora_planteada:
+          s.accion_mejora_planteada ?? plan.accion_mejora_planteada ?? null,
+      }));
+      results.push({ plan, seguimientos: normalized });
+    }
+    return results;
+  }
+
   return {
     plans: sortedPlans,
     rows,
@@ -668,5 +739,7 @@ async function removeById(id: number) {
     newPlanFromAction,
     createPlanFromAction, 
     usedIndicadores,
+    loadSeguimientosForExport,
+    planMissingKeys,
   };
 }

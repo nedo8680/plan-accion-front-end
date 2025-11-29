@@ -13,52 +13,77 @@ import SeguimientosTimeline from "../components/seguimiento/SeguimientosTimeline
 import IndicadoresAutoLoader from "../components/seguimiento/IndicadoresAutoLoader";
 
 import {
-  exportSeguimientosCSV,
-  exportSeguimientosXLSX,
-  exportSeguimientosPDF,
+  exportAllSeguimientosCSV,
+  exportAllSeguimientosXLSX,
+  exportAllSeguimientosPDF,
 } from "../components/seguimiento/exporters";
 
 // ─────────────────────────────────────────────────────────────
-// Botonera de exportación (plan seleccionado)
+// Botonera de exportación (todos los planes/seguimientos)
 // ─────────────────────────────────────────────────────────────
 function ExportPlanButtons({
-  plan,
-  segs,
+  hasData,
+  loadAllSeguimientos,
 }: {
-  plan: Plan | null;
-  segs: Seguimiento[];
+  hasData: boolean;
+  loadAllSeguimientos: () => Promise<{ plan: Plan; seguimientos: Seguimiento[] }[]>;
 }) {
-  const disabled = !plan || segs.length === 0;
+  const [loading, setLoading] = React.useState(false);
+
+  async function handle(kind: "csv" | "xlsx" | "pdf") {
+    try {
+      setLoading(true);
+      const groups = await loadAllSeguimientos();
+      if (!groups.length) {
+        alert("No hay registros para exportar.");
+        return;
+      }
+      if (kind === "csv") {
+        exportAllSeguimientosCSV(groups);
+      } else if (kind === "xlsx") {
+        await exportAllSeguimientosXLSX(groups);
+      } else {
+        await exportAllSeguimientosPDF(groups);
+      }
+    } catch (e: any) {
+      console.error("Exportación fallida", e);
+      alert(e?.message ?? "No se pudo exportar los seguimientos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const disabled = loading || !hasData;
 
   return (
     <div className="ml-2 flex items-center gap-2">
-      <span className="text-xs font-medium text-gray-600">Exportar:</span>
+      <span className="text-xs font-medium text-gray-600">Exportar todos:</span>
       <button
         type="button"
-        onClick={() => exportSeguimientosCSV(plan, segs)}
+        onClick={() => handle("csv")}
         className="btn-outline"
         disabled={disabled}
-        title={disabled ? "Selecciona un plan con seguimientos" : "Exportar CSV"}
+        title={disabled ? "No hay registros para exportar" : "Exportar todos los seguimientos en CSV"}
       >
-        CSV
+        {loading ? "Exportando..." : "CSV"}
       </button>
       <button
         type="button"
-        onClick={() => exportSeguimientosXLSX(plan, segs)}
+        onClick={() => handle("xlsx")}
         className="btn-outline"
         disabled={disabled}
-        title={disabled ? "Selecciona un plan con seguimientos" : "Exportar XLSX"}
+        title={disabled ? "No hay registros para exportar" : "Exportar todos los seguimientos en XLSX"}
       >
-        XLSX
+        {loading ? "Exportando..." : "XLSX"}
       </button>
       <button
         type="button"
-        onClick={() => exportSeguimientosPDF(plan, segs)}
+        onClick={() => handle("pdf")}
         className="btn-outline"
         disabled={disabled}
-        title={disabled ? "Selecciona un plan con seguimientos" : "Exportar PDF"}
+        title={disabled ? "No hay registros para exportar" : "Exportar todos los seguimientos en PDF"}
       >
-        PDF
+        {loading ? "Exportando..." : "PDF"}
       </button>
     </div>
   );
@@ -76,7 +101,9 @@ export default function SeguimientoPage() {
     toggleCreatedOrder,
     importSeguimientoFields,  
     createPlanFromAction, 
-    usedIndicadores,    
+    usedIndicadores,
+    loadSeguimientosForExport,
+    planMissingKeys,
   } = useSeguimientos();
   
   type IndicadorApiRow = {
@@ -150,11 +177,13 @@ export default function SeguimientoPage() {
           overrides.estado = "Pendiente";
         }
 
-        await saveCurrent(overrides);
-        alert("Seguimiento enviado a revisión.");
+        const saved = await saveCurrent(overrides);
+        if (!saved) return;
+        alert("Acción de mejora enviada con éxito");
       } else {
         // admin / auditor simplemente guardan cambios
-        await saveCurrent({} as any);
+        const saved = await saveCurrent({} as any);
+        if (!saved) return;
         alert("Seguimiento guardado.");
       }
     } finally {
@@ -254,14 +283,17 @@ export default function SeguimientoPage() {
               disabled={isAuditor}
               onClick={() => {
                 if (!activePlanId) return;
-                if (confirm("¿Eliminar este plan y todos sus seguimientos?")) removePlan(activePlanId);
+                if (confirm("¿Eliminar esta acción de mejora y sus seguimientos?")) removePlan(activePlanId);
               }}
             >
               Borrar registro
             </button>
 
-            {/* Exportar (plan + seguimientos) */}
-            <ExportPlanButtons plan={activePlan} segs={children} />
+            {/* Exportar todos los planes + seguimientos */}
+            <ExportPlanButtons
+              hasData={plans.length > 0}
+              loadAllSeguimientos={loadSeguimientosForExport}
+            />
           </div>
         </div>
 
@@ -308,7 +340,7 @@ export default function SeguimientoPage() {
             {/* Formulario */}
             <section className={`card ${mobileTab === "form" ? "block" : "hidden lg:block"}`}>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Formulario · Seguimiento</h2>
+                <h2 className="text-lg font-semibold">Acción de Mejora</h2>
                 {canResetForm && (
                   <button
                   type="button"
@@ -336,6 +368,7 @@ export default function SeguimientoPage() {
                 indicadoresApi={indicadoresApi}   
                 onRequestNewPlanFromAction={handleNewPlanFromAction}
                 usedIndicadores={usedIndicadores}  
+                missingPlanKeys={planMissingKeys}
                 header={
                   <SeguimientoTabs
                     items={children}
