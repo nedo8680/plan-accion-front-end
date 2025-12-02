@@ -1,4 +1,5 @@
 import React from "react";
+import * as XLSX from "xlsx";
 import { UsersAPI, UserRole, ReportsAPI } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import Spinner from "../components/Spinner";
@@ -79,26 +80,51 @@ export default function AdminUsers() {
 
   const loadEntidades = React.useCallback(async () => {
     if (role !== "entidad") return;
+
     try {
       setLoadingEntidades(true);
       setEntidadesError(null);
-      const data = await ReportsAPI.list();
-      if (!Array.isArray(data)) throw new Error("Respuesta inválida de reports");
 
-      const set = new Set<string>();
-      for (const row of data) {
-        const ent = typeof (row as any)?.entidad === "string" ? (row as any).entidad.trim() : "";
-        if (ent) set.add(ent);
-      }
+      // Ruta pública (React sirve /public como raíz)
+      const fileUrl = "/external/Modelo_tabular.xlsx";
+
+      // 1. Descargar el archivo
+      const resp = await fetch(fileUrl);
+      if (!resp.ok) throw new Error("No se pudo cargar el archivo Excel.");
+
+      const buffer = await resp.arrayBuffer();
+
+      // 2. Leer workbook
+      const workbook = XLSX.read(buffer);
+
+      // 3. Sheet "Entidades"
+      const sheet = workbook.Sheets["Entidades"];
+      if (!sheet) throw new Error("No existe el sheet 'Entidades'.");
+
+      // 4. Convertir a matriz (header:1 = formato tipo array)
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // Columna B → índice 1
+      const entidadesExcel = rows
+        .map((row) => row[1])
+        .filter((x) => x && x !== "Entidad") // limpiamos header + vacíos
+        .map((x) => String(x).trim());
+
+      // 5. Set para evitar duplicados
+      const set = new Set<string>(entidadesExcel);
+
       const list = Array.from(set).sort((a, b) =>
         a.localeCompare(b, "es", { sensitivity: "base" })
       );
-      // Si mientras cargábamos cambió el rol, no sobrescribir
+
+      // Verificar condiciones antes de sobrescribir estado
       if (roleRef.current !== "entidad") return;
+
       setEntidadesCatalog(list);
+
       if (!entidad && list.length) setEntidad(list[0]);
     } catch (e: any) {
-      setEntidadesError(e?.message || "No se pudo cargar entidades desde reports.");
+      setEntidadesError(e?.message || "No se pudo cargar entidades desde Excel.");
     } finally {
       setLoadingEntidades(false);
     }
