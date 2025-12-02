@@ -107,7 +107,7 @@ export default function AdminUsers() {
       // Columna B → índice 1
       const entidadesExcel = rows
         .map((row) => row[1])
-        .filter((x) => x && x !== "Entidad") // limpiamos header + vacíos
+        .filter((x) => x && x !== "entidad") // limpiamos header + vacíos
         .map((x) => String(x).trim());
 
       // 5. Set para evitar duplicados
@@ -307,7 +307,7 @@ export default function AdminUsers() {
       aria-disabled={disabled}
       title="Permisos del usuario entidad"
     >
-      <option value="captura_reportes">Captura + Reportes</option>
+      <option value="captura_reportes">Captura + Reportes + Seguimiento</option>
       <option value="reportes_seguimiento">Reportes + Seguimiento</option>
     </select>
   );
@@ -326,18 +326,6 @@ export default function AdminUsers() {
         {/* Form crear usuario */}
         <form onSubmit={handleCreate} className="mb-8 rounded-lg border bg-white p-4 shadow-sm">
           <div className="grid gap-3 sm:grid-cols-4">
-            <div className="sm:col-span-1">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
-                placeholder="usuario@dominio.com"
-                required
-              />
-            </div>
-
             {role === "entidad" ? (
               <div className="sm:col-span-1">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Entidad/Usuario</label>
@@ -386,6 +374,17 @@ export default function AdminUsers() {
                 />
               </div>
             )}
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+                placeholder="usuario@dominio.com"
+                required
+              />
+            </div>
 
             <div className="sm:col-span-1">
               <label className="mb-1 block text-sm font-medium text-gray-700">Contraseña</label>
