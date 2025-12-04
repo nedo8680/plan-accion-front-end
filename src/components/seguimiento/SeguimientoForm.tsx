@@ -457,7 +457,6 @@ export default function SeguimientoForm({
 
                 const isUsedAny = !!val && usedIndicadoresSet.has(val);
                 const label = row.indicador ?? "(sin indicador)";
-                const labelEntidad = row.entidad ? ` – ${row.entidad}` : "";
                 const suffix = isUsedAny ? " (Ya en plan)" : "";
 
                 return (
@@ -467,7 +466,6 @@ export default function SeguimientoForm({
                     disabled={isUsedAny && !hasPlanPersisted}
                   >
                     {label}
-                    {labelEntidad}
                     {suffix}
                   </option>
                 );
