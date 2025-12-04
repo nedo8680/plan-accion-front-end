@@ -4,11 +4,13 @@ import { api } from "../../lib/api";
 export type IndicadorApiRow = {
   entidad: string | undefined;
   indicador: string | undefined;
+  criterio: string | undefined;
   accion: string | undefined;
+  insumo: string | undefined;
 };
 
 type Props = {
-  onImport: (data: { entidad?: string; indicador?: string; accion?: string }) => void;
+  onImport: (data: { entidad?: string; indicador?: string; criterio?: string; accion?: string; insumo?: string}) => void;
   onOptionsFromApi?: (rows: IndicadorApiRow[]) => void;
   nombreEntidad?: string | null;
 };
@@ -17,12 +19,16 @@ const FALLBACK_ROWS: IndicadorApiRow[] = [
   {
     entidad: "Administrador",
     indicador: "Indicador de satisfacción",
+    criterio: "Porcentaje de usuarios satisfechos",
     accion: "Realizar encuesta trimestral a los usuarios",
+    insumo: "Dimensión de satisfacción del usuario",
   },
   {
     entidad: "Administrador",
     indicador: "Tiempo de respuesta a PQRS",
+    criterio: "Promedio de días para responder PQRS",
     accion: "Implementar tablero de monitoreo diario",
+    insumo: "Dimensión de PQRS"
   },
 ];
 
@@ -46,16 +52,17 @@ export default function IndicadoresAutoLoader({
         const toRowsFromObj = (obj: any): IndicadorApiRow[] => {
           if (!obj || typeof obj !== "object") return [];
 
-          // Caso actual del backend: { entidad, indicadores: [{ indicador, accion }, ...] }
+          // Caso actual del backend: { entidad, indicadores: [{ indicador, criterio, accion, insumo }, ...] }
           if (Array.isArray(obj.indicadores)) {
             const entidad =
               obj.entidad || obj.nombre_entidad || obj.nombre || undefined;
 
             return obj.indicadores.map((item: any) => ({
               entidad: entidad ? String(entidad) : undefined,
-              indicador:
-                item?.indicador != null ? String(item.indicador) : undefined,
+              indicador: item?.indicador != null ? String(item.indicador) : undefined,
+              criterio: item?.criterio != null ? String(item.criterio) : undefined,
               accion: item?.accion != null ? String(item.accion) : undefined,
+              insumo: item?.insumo != null ? String(item.insumo) : undefined,
             }));
           }
 
@@ -78,19 +85,28 @@ export default function IndicadoresAutoLoader({
             "indicador_nombre",
             "nombre_indicador",
           ]);
+          const criterio = findKey([
+            "criterio",
+          ])
           const accion = findKey([
             "accion",
             "accion_mejora_planteada",
             "accion_planteada",
           ]);
+          const insumo = findKey([
+            "insumo",
+            "insumo_mejora",
+          ]);
 
-          if (!entidad && !indicador && !accion) return [];
+          if (!entidad && !indicador && !accion && !insumo) return [];
 
           return [
             {
               entidad: entidad != null ? String(entidad) : undefined,
               indicador: indicador != null ? String(indicador) : undefined,
+              criterio: criterio != null ? String(criterio) : undefined,
               accion: accion != null ? String(accion) : undefined,
+              insumo: insumo != null ? String(insumo) : undefined,
             },
           ];
         };
@@ -114,11 +130,15 @@ export default function IndicadoresAutoLoader({
 
         // Autorrellenar el form con la primera fila
         const first = normalized[0];
-        if (first && (first.entidad || first.indicador || first.accion)) {
+        if (first && (first.entidad || first.indicador || first.accion || first.insumo)) {
+          console.log("IndicadoresAutoLoader: auto-importando indicador desde API", first);
+          console.log("Criterio: ", first.criterio === "" ? first.indicador : first.criterio);
           onImport({
             entidad: first.entidad,
             indicador: first.indicador,
+            criterio: first.criterio === "" ? first.indicador : first.criterio,
             accion: first.accion,
+            insumo: first.insumo,
           });
         }
       } catch (e) {

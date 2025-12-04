@@ -12,7 +12,9 @@ type InsumoMejora =
 type IndicadorApiRow = {
   entidad?: string;
   indicador?: string;
+  criterio?: string;
   accion?: string;
+  insumo?: string;
 };
 
 type UnifiedFormValue = {
@@ -36,6 +38,7 @@ type UnifiedFormValue = {
 
   observacion_calidad?: string | null;
   indicador?: string | null;
+  criterio?: string | null;
   fecha_reporte?: string | null;
 
   estado?: string | null; // "Borrador" | "Pendiente" | ...
@@ -127,6 +130,37 @@ export default function SeguimientoForm({
   const eviHelpRef = React.useRef<HTMLDivElement | null>(null);
   const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
 
+  // === Indicadores únicos ===
+  const uniqueIndicadores = React.useMemo(() => {
+    if (!indicadoresApi) return [];
+
+    const map = new Map<string, IndicadorApiRow>();
+
+    indicadoresApi.forEach((r) => {
+      const key = (r.indicador ?? "").trim();
+      if (key && !map.has(key)) {
+        map.set(key, r);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [indicadoresApi]);
+
+
+  // === Criterios según el indicador seleccionado ===
+  const criteriosForIndicador = React.useMemo(() => {
+    if (!indicadoresApi || !value.indicador) return [];
+
+    const rows = indicadoresApi.filter(
+      (r) => (r.indicador ?? "").trim() === (value.indicador ?? "").trim()
+    );
+
+    return rows.map((r) =>
+      r.criterio?.trim() ? r.criterio.trim() : r.indicador!.trim()
+    );
+  }, [indicadoresApi, value.indicador]);
+
+
   // 👇 NUEVO: saber si el plan ya existe en BD
   const hasPlanPersisted = Boolean(value.plan_id);
 
@@ -138,24 +172,34 @@ export default function SeguimientoForm({
     !ro["indicador"];
 
   const handleIndicadorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const indicadorValue = e.target.value;
+    const indicadorValue = e.target.value.trim();
 
-    // Actualizar el campo indicador en el form
-    onChange("indicador" as any, indicadorValue);
+    // Actualiza indicador
+    onChange("indicador", indicadorValue);
 
-    // Buscar la fila correspondiente
-    const row = indicadoresApi?.find((r) => r.indicador === indicadorValue);
+    // Filtrar criterios de este indicador
+    const criterios = indicadoresApi
+      ?.filter((r) => (r.indicador ?? "").trim() === indicadorValue)
+      .map((r) => (r.criterio?.trim() ? r.criterio.trim() : indicadorValue)) ?? [];
 
-    if (row) {
-      // Rellenar automáticamente la acción de mejora
-      if (row.accion) {
-        onChange("observacion_informe_calidad", row.accion);
-      }
+    const firstCriterio = criterios[0] ?? "";
 
-      // Opcional: también actualizar nombre_entidad
-      if (row.entidad) {
-        onChange("nombre_entidad", row.entidad);
-      }
+    // Set criterio auto
+    onChange("criterio", firstCriterio);
+
+    // Buscar acción del primer criterio
+    const row = indicadoresApi?.find((r) => {
+      const crit = r.criterio?.trim() || r.indicador?.trim();
+      return (r.indicador ?? "").trim() === indicadorValue && crit === firstCriterio;
+    });
+
+    if (row?.accion) {
+      onChange("observacion_informe_calidad", row.accion);
+    }
+
+    // Opcional: actualizar nombre de entidad
+    if (row?.entidad) {
+      onChange("nombre_entidad", row.entidad);
     }
   };
 
@@ -356,117 +400,123 @@ export default function SeguimientoForm({
             </span>
           )}
         </legend>
-        {/* Indicador  */}
+        
+        {/* Indicador */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="self-center text-sm font-medium text-gray-700 md:text-right md:pr-3">
             Indicador
           </label>
+
           <div className="md:col-span-2">
-            {hasIndicadoresApi ? (
-              <>
-                {(() => {
-                  const currentIndicador = (value as any).indicador ?? "";
-                  const trimmedCurrent = currentIndicador.trim();
-                  const hasCurrentInOptions =
-                    !!trimmedCurrent &&
-                    indicadoresApi!.some(
-                      (row) => (row.indicador ?? "").trim() === trimmedCurrent
-                    );
+            <select
+              className={`w-full ${hasPlanError("indicador") ? "border border-red-500 bg-red-50" : ""}`}
+              value={value.indicador ?? ""}
+              onChange={(e) => {
+                const indicadorValue = e.target.value.trim();
 
-                  return (
-                    <select
-                      className={`w-full ${hasPlanError("indicador") ? "border border-red-500 bg-red-50" : ""}`}
-                      value={currentIndicador}
-                      onChange={handleIndicadorSelect}
-                      disabled={!canEditIndicador}
-                      aria-disabled={!canEditIndicador}
-                      required={canEditPlanBlock}
-                      ref={planFieldRefs.indicador as any}
-                      aria-invalid={hasPlanError("indicador")}
-                    >
-                      <option value="">-- Selecciona un indicador --</option>
+                // 1) Actualizar indicador
+                onChange("indicador", indicadorValue);
 
-                      {/* Si hay un indicador guardado que NO está en la lista,
-                          lo mostramos igual para admin/auditor */}
-                      {trimmedCurrent && !hasCurrentInOptions && (
-                        <option value={currentIndicador}>
-                          {currentIndicador}
-                        </option>
-                      )}
+                // 2) Cargar criterios de este indicador
+                const rows = indicadoresApi?.filter(
+                  (r) => (r.indicador ?? "").trim() === indicadorValue
+                ) ?? [];
 
-                      {indicadoresApi!.map((row, idx) => {
-                        const val = row.indicador ?? "";
+                const criterios = rows.map((r) =>
+                  r.criterio?.trim() ? r.criterio.trim() : indicadorValue
+                );
 
-                        const isUsedAny = !!val && usedIndicadoresSet.has(val);
+                const firstCriterio = criterios[0] ?? "";
 
-                        const labelBase = row.indicador ?? "(sin indicador)";
-                        const labelEntidad = row.entidad ? ` – ${row.entidad}` : "";
-                        const suffix = isUsedAny ? " (Ya en plan)" : "";
+                // 3) Set automatic de criterio
+                onChange("criterio", firstCriterio);
 
-                        return (
-                          <option
-                            key={idx}
-                            value={val}
-                            disabled={isUsedAny && !hasPlanPersisted}
-                          >
-                            {labelBase}
-                            {labelEntidad}
-                            {suffix}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  );
-                })()}
+                // 4) Set automatic de acción según indicador + criterio
+                const row = rows.find((r) => {
+                  const crit = r.criterio?.trim() || r.indicador?.trim();
+                  return crit === firstCriterio;
+                });
 
-                <p className="mt-1 text-xs text-gray-500">
-                  {hasPlanPersisted
-                    ? "El indicador de este plan ya está definido y no puede modificarse."
-                    : "Los indicadores que ya tienen un plan asociado aparecen deshabilitados para nuevos planes."}
-                </p>
-              </>
-            ) : (
-              <input
-                className={`w-full ${hasPlanError("indicador") ? "border border-red-500 bg-red-50" : ""}`}
-                value={(value as any).indicador ?? ""}
-                onChange={(e) => onChange("indicador" as any, e.target.value)}
-                disabled={!canEditPlanBlock || !!ro["indicador"]}
-                aria-disabled={!canEditPlanBlock || !!ro["indicador"]}
-                required={canEditPlanBlock}
-                ref={planFieldRefs.indicador as any}
-                aria-invalid={hasPlanError("indicador")}
-              />
-            )}
+                if (row?.accion) {
+                  onChange("observacion_informe_calidad", row.accion);
+                }
+
+                // 5) Actualizar entidad si corresponde
+                if (row?.entidad) {
+                  onChange("nombre_entidad", row.entidad);
+                }
+              }}
+              disabled={!canEditIndicador}
+              aria-disabled={!canEditIndicador}
+              required={canEditPlanBlock}
+              ref={planFieldRefs.indicador as any}
+              aria-invalid={hasPlanError("indicador")}
+            >
+              {uniqueIndicadores.map((row, idx) => {
+                const val = row.indicador ?? "";
+
+                const isUsedAny = !!val && usedIndicadoresSet.has(val);
+                const label = row.indicador ?? "(sin indicador)";
+                const labelEntidad = row.entidad ? ` – ${row.entidad}` : "";
+                const suffix = isUsedAny ? " (Ya en plan)" : "";
+
+                return (
+                  <option
+                    key={idx}
+                    value={val}
+                    disabled={isUsedAny && !hasPlanPersisted}
+                  >
+                    {label}
+                    {labelEntidad}
+                    {suffix}
+                  </option>
+                );
+              })}
+            </select>
+
+            <p className="mt-1 text-xs text-gray-500">
+              {hasPlanPersisted
+                ? "El indicador de este plan ya está definido y no puede modificarse."
+                : "Los indicadores que ya tienen un plan asociado aparecen deshabilitados para nuevos planes."}
+            </p>
           </div>
         </div>
 
-
-        {/* Insumo de mejora */}
+        {/* Criterio */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
           <label className="text-sm font-medium text-gray-700 md:text-right md:pr-3">
-            Insumo de mejora
+            Criterio
           </label>
+
           <div className="md:col-span-2">
             <select
-              className={`w-full ${hasPlanError("insumo_mejora") ? "border border-red-500 bg-red-50" : ""}`}
-              value={value.insumo_mejora ?? ""}
-              onChange={(e) => onChange("insumo_mejora", e.target.value as InsumoMejora)}
-              disabled={!canEditPlanBlock || !!ro["insumo_mejora"]}
-              aria-disabled={!canEditPlanBlock || !!ro["insumo_mejora"]}
+              className="w-full"
+              value={value.criterio ?? ""}
+              onChange={(e) => {
+                const criterio = e.target.value.trim();
+                onChange("criterio", criterio);
+
+                // Buscar la acción exacta de este indicador+criterio
+                const row = indicadoresApi?.find((r) => {
+                  const crit = r.criterio?.trim() || r.indicador?.trim();
+                  return (
+                    (r.indicador ?? "").trim() === (value.indicador ?? "").trim() &&
+                    crit === criterio
+                  );
+                });
+
+                if (row?.accion) {
+                  onChange("observacion_informe_calidad", row.accion);
+                }
+              }}
+              disabled={!canEditPlanBlock}
               required={canEditPlanBlock}
-              ref={planFieldRefs.insumo_mejora as any}
-              aria-invalid={hasPlanError("insumo_mejora")}
             >
-              <option value="">-- Selecciona --</option>
-              <option>Experencia en los canales de atención</option>
-              <option>Satisfacción con el servicio recibido</option>
-              <option>Calidad de las respuestas</option>
-              <option>Digitalización y automatización de trámites</option>
-              <option>Ahorros en los requisitos y tiempos</option>
-              <option>Calidad de las respuestas</option>
-              <option>Evaluación de capacidad instalada</option>
-              <option>Evaluación de habilidades para atención diferencia</option>
-              <option>Estándares y protocolos de atención</option>
+              {criteriosForIndicador.map((c, i) => (
+                <option key={i} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
         </div>
