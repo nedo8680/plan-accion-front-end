@@ -322,7 +322,6 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
   const planFieldLabels: Record<string, string> = {
     enlace_entidad: "Enlace de la entidad",
     indicador: "Indicador",
-    insumo_mejora: "Insumo de mejora",
     tipo_accion_mejora: "Tipo de acción de mejora",
     observacion_informe_calidad: "Acción recomendada",
     accion_mejora_planteada: "Acción de mejora planteada",
@@ -342,7 +341,6 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     const missing: string[] = [];
     if (isBlank(base.enlace_entidad)) missing.push("enlace_entidad");
     if (isBlank(base.indicador)) missing.push("indicador");
-    if (isBlank(base.insumo_mejora)) missing.push("insumo_mejora");
     if (isBlank(base.tipo_accion_mejora)) missing.push("tipo_accion_mejora");
     if (isBlank(base.observacion_informe_calidad)) missing.push("observacion_informe_calidad");
     if (isBlank(base.accion_mejora_planteada)) missing.push("accion_mejora_planteada");
@@ -364,7 +362,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     if (missingPlanFields.length) {
       setPlanMissingKeys(missingPlanFields);
       const labels = missingPlanFields.map((k) => planFieldLabels[k] || k);
-      alert(`Todos los campos son requeridos`);
+      alert(`Todos los campos son requeridos: ${labels.join(", ")} `);
       return null;
     }
     const planId = await ensurePlanExists();

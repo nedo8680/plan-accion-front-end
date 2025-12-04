@@ -307,8 +307,8 @@ export default function AdminUsers() {
       aria-disabled={disabled}
       title="Permisos del usuario entidad"
     >
-      <option value="captura_reportes">Captura + Reportes + Seguimiento</option>
-      <option value="reportes_seguimiento">Reportes + Seguimiento</option>
+      <option value="captura_reportes">Captura + Reportes </option>
+      <option value="reportes_seguimiento">Captura + Reportes + Seguimiento</option>
     </select>
   );
 
