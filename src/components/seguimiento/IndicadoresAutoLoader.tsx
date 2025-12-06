@@ -131,8 +131,6 @@ export default function IndicadoresAutoLoader({
         // Autorrellenar el form con la primera fila
         const first = normalized[0];
         if (first && (first.entidad || first.indicador || first.accion || first.insumo)) {
-          console.log("IndicadoresAutoLoader: auto-importando indicador desde API", first);
-          console.log("Criterio: ", first.criterio === "" ? first.indicador : first.criterio);
           onImport({
             entidad: first.entidad,
             indicador: first.indicador,

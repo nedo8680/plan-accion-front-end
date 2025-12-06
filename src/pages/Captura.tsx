@@ -3,6 +3,7 @@ import Header from "../components/Header";
 import PageBg from "../components/PageBackground";
 import { useAuth } from "../context/AuthContext";
 import { FiChevronDown } from "react-icons/fi";
+import SkillLoader from "../components/SkillLoader"; // <-- añadido
 
 type LinkItem = { label: string; url?: string | null };
 type SubSection = { title: string; items: LinkItem[], subsections?: SubSection[] };
@@ -67,6 +68,11 @@ const DATA: Section[] = [
         ],
       },
     ],
+  },
+  // NUEVA SECCIÓN para montar el componente de carga de datos
+  {
+    title: "Carga de datos",
+    items: [], // el componente se renderiza directamente, no necesita items
   },
 ];
 
@@ -658,6 +664,13 @@ export default function Captura() {
           {SECTIONS.map((section) => (
             <section key={section.title} className="rounded-2xl bg-white p-6 shadow-md">
               <h2 className="text-xl font-semibold text-gray-900">{section.title}</h2>
+
+              {/* INSERT: sección que monta el componente SkillLoader */}
+              {section.title === "Carga de datos" ? (
+                <div className="mt-4">
+                  <SkillLoader onProcessed={() => {}} />
+                </div>
+              ) : null}
 
               {/* Botones directos */}
               {section.items?.length ? (

@@ -257,3 +257,32 @@ export async function uploadEvidence( file: File
     content_type: json.content_type,
   };
 }
+
+// ---- Añadimos helpers tipo api.post, api.get, api.put, api.delete ----
+export namespace api {
+  export function post(path: string, payload?: any, init?: RequestInit) {
+    const isForm =
+      payload instanceof FormData || payload instanceof URLSearchParams;
+    const body = payload === undefined ? undefined : isForm ? payload : JSON.stringify(payload);
+    const opts: RequestInit = { method: "POST", body, ...(init || {}) };
+    return (api as any)(path, opts);
+  }
+
+  export function get(path: string, init?: RequestInit) {
+    const opts: RequestInit = { method: "GET", ...(init || {}) };
+    return (api as any)(path, opts);
+  }
+
+  export function put(path: string, payload?: any, init?: RequestInit) {
+    const isForm =
+      payload instanceof FormData || payload instanceof URLSearchParams;
+    const body = payload === undefined ? undefined : isForm ? payload : JSON.stringify(payload);
+    const opts: RequestInit = { method: "PUT", body, ...(init || {}) };
+    return (api as any)(path, opts);
+  }
+
+  export function del(path: string, init?: RequestInit) {
+    const opts: RequestInit = { method: "DELETE", ...(init || {}) };
+    return (api as any)(path, opts);
+  }
+}
