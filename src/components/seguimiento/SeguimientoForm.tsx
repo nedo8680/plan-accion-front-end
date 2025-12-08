@@ -380,6 +380,11 @@ export default function SeguimientoForm({
           <input
             value={value.enlace_entidad ?? ""}
             onChange={(e) => onChange("enlace_entidad", e.target.value)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const limpio = raw.replace(/[^a-zA-ZÁÉÍÓÚáéíóúÑñ\s]/g, "");
+              onChange("enlace_entidad", limpio);
+            }}
             disabled={!canEditEnlaceEntidad || !!ro["enlace_entidad"]}
             aria-disabled={!canEditEnlaceEntidad || !!ro["enlace_entidad"]}
             required={canEditEnlaceEntidad}
