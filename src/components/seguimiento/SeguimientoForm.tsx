@@ -1036,7 +1036,7 @@ export default function SeguimientoForm({
               className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
             >
               <span className="text-base leading-none">＋</span>
-              <span>Crear otra acción de mejora</span>
+              <span>Nueva acción de mejora asociada este indicador</span>
             </button>
           </div>
         )}
