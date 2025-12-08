@@ -593,20 +593,6 @@ export default function SeguimientoForm({
               </div>
             )}
 
-            {canEditPlanBlock &&
-              !!value.accion_mejora_planteada?.trim() &&
-              onRequestNewPlanFromAction && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onRequestNewPlanFromAction(value.accion_mejora_planteada!.trim())
-                  }
-                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
-                >
-                  <span className="text-base leading-none">＋</span>
-                  <span>Crear otra acción de mejora</span>
-                </button>
-              )}
           </div>
         </div>
 
@@ -1032,6 +1018,23 @@ export default function SeguimientoForm({
           </div>
         </fieldset>
       )}
+
+ {canEditPlanBlock &&
+        !!value.accion_mejora_planteada?.trim() &&
+        onRequestNewPlanFromAction && (
+          <div className="mt-4 flex justify-start">
+            <button
+              type="button"
+              onClick={() =>
+                onRequestNewPlanFromAction(value.accion_mejora_planteada!.trim())
+              }
+              className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+            >
+              <span className="text-base leading-none">＋</span>
+              <span>Crear otra acción de mejora</span>
+            </button>
+          </div>
+        )}
 
       {footer && (
         <div className="mt-4 border-t border-gray-200 pt-4">
