@@ -548,6 +548,10 @@ async function addChildImmediate() {
 
 async function removeById(id: number) {
   if (!activePlanId || !id) return;
+  if (!isAdmin) {
+    console.warn("removeById: solo un admin puede eliminar seguimientos");
+    return;
+  }
 
   // 1) Borrar en backend
   await api(`/seguimiento/${activePlanId}/seguimiento/${id}`, { method: "DELETE" });
@@ -601,9 +605,13 @@ async function removeById(id: number) {
 }
 
 
-  async function removePlan(id?: number) {
+async function removePlan(id?: number) {
     const planId = id ?? activePlanId;
     if (!planId) return;
+    if (!isAdmin) {
+      console.warn("removePlan: solo un admin puede eliminar planes");
+      return;
+    }
     await api(`/seguimiento/${planId}`, { method: "DELETE" });
     setPlans((prev) => prev.filter((p) => p.id !== planId));
     if (activePlanId === planId) {

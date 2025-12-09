@@ -14,19 +14,48 @@ type Props = {
   activeChildrenCount?: number;
 };
 
+// Helper robusto para Safari: parsear fechas sin zona como UTC
+function parsePlanDate(raw?: string | null): Date | null {
+  if (!raw) return null;
+  const s = raw.trim().replace(" ", "T");
+
+  // Con zona explícita
+  if (/[zZ]$/.test(s) || /[+\-]\d{2}:\d{2}$/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Solo fecha
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T00:00:00Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Fecha + HH:mm
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) {
+    const d = new Date(`${s}:00Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Fecha + HH:mm:ss(.sss)
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
+    const d = new Date(`${s}Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Último recurso: asumir UTC
+  const fallback = new Date(`${s}Z`);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
 // Helper: obtener una fecha "representativa" del plan
 function getPlanDate(p: Plan): Date | null {
-  const raw =
-    p.created_at ||
-    (p as any).createdAt ||
-    p.fecha_inicio ||
-    p.fecha_final;
-
-  if (!raw) return null;
-
-  const s = raw.trim().replace(" ", "T");
-  const d = new Date(/Z$/.test(s) ? s : s + "Z");
-  return isNaN(d.getTime()) ? null : d;
+  return (
+    parsePlanDate(p.created_at) ||
+    parsePlanDate((p as any).createdAt) ||
+    parsePlanDate(p.fecha_inicio) ||
+    parsePlanDate(p.fecha_final)
+  );
 }
 
 export default function PlanesSidebar({

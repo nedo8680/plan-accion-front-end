@@ -148,7 +148,8 @@ export default function SeguimientoPage() {
   const activeChildId = activeChild?.id;
 
   // permisos
-  const canDeleteChild = !!currentSeguimientoId && (isAdmin || isEntidad);
+  const canDeleteChild = !!currentSeguimientoId && isAdmin;
+  const canDeletePlan = isAdmin && !!activePlanId;
 
   const canResetForm = isAdmin || isEntidad;
   const canAddChild =
@@ -277,12 +278,12 @@ export default function SeguimientoPage() {
             {/* Borrar plan */}
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
-                !isAuditor ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
+                canDeletePlan ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"
               }`}
               type="button"
-              disabled={isAuditor}
+              disabled={!canDeletePlan}
               onClick={() => {
-                if (!activePlanId) return;
+                if (!activePlanId || !isAdmin) return;
                 if (confirm("¿Eliminar esta acción de mejora y sus seguimientos?")) removePlan(activePlanId);
               }}
             >
@@ -422,6 +423,7 @@ export default function SeguimientoPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (!isAdmin) return;
                           if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
                             removeById(currentSeguimientoId);
                           }

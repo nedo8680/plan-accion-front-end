@@ -142,11 +142,7 @@ export default function IndicadoresAutoLoader({
           });
         }
       } catch (e) {
-        console.error(
-          "IndicadoresAutoLoader: error al llamar /reports/{nombre_entidad}",
-          e
-        );
-
+        
         if (onOptionsFromApi && mounted) {
           onOptionsFromApi(FALLBACK_ROWS);
         }
