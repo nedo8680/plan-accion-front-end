@@ -379,7 +379,6 @@ export default function SeguimientoForm({
         <div className="md:col-span-2">
           <input
             value={value.enlace_entidad ?? ""}
-            onChange={(e) => onChange("enlace_entidad", e.target.value)}
             onChange={(e) => {
               const raw = e.target.value;
               const limpio = raw.replace(/[^a-zA-ZÁÉÍÓÚáéíóúÑñ\s]/g, "");
@@ -667,7 +666,6 @@ export default function SeguimientoForm({
               className={`w-full ${hasPlanError("fecha_inicio") ? "border border-red-500 bg-red-50" : ""}`}
               required
               value={value.fecha_inicio ?? ""}
-              onChange={(e) => onChange("fecha_inicio", e.target.value)}
               onChange={(e) => {
                 const nuevaInicio = e.target.value;
                 onChange("fecha_inicio", nuevaInicio);
@@ -694,6 +692,7 @@ export default function SeguimientoForm({
               required={canEditPlanBlock}
               value={value.fecha_final ?? ""}
               onChange={(e) => onChange("fecha_final", e.target.value)}
+              min={value.fecha_inicio || undefined}
               disabled={!canEditPlanBlock || !!ro["fecha_final"]}
               aria-disabled={!canEditPlanBlock || !!ro["fecha_final"]}
               ref={planFieldRefs.fecha_final}
