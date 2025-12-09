@@ -42,6 +42,8 @@ type UnifiedFormValue = {
   fecha_reporte?: string | null;
 
   estado?: string | null; // "Borrador" | "Pendiente" | ...
+  
+  aprobado_evaluador?: "Aprobado" | "Rechazado" | "" | null;
 };
 
 type Props = {
@@ -101,12 +103,17 @@ export default function SeguimientoForm({
   const hasSeguimientoActual = Boolean(value.id) || Boolean(value.fecha_reporte);
 
   const isDraftEstado = estadoPlan === "Borrador";
+  
+  const isPlanAprobado = value.aprobado_evaluador === "Aprobado";
 
   const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
 
   // Bloque de seguimiento visible si hay plan y ya hay seguimiento creado o el plan no está en borrador
   const isSeguimientoVisible =
-    isSeguimientoBase && (hasSeguimientoActual || !isDraftEstado);
+   // isSeguimientoBase && (hasSeguimientoActual || !isDraftEstado);
+  isSeguimientoBase &&
+  !isDraftEstado &&
+  isPlanAprobado;
 
   const estadoSeguimiento = (value.seguimiento as string) || "Pendiente";
 
@@ -700,6 +707,32 @@ export default function SeguimientoForm({
             />
           </div>
         </div>
+        
+        {/* Resultado evaluación (solo evaluador) */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
+          <label className="text-sm font-medium text-gray-700 md:text-right md:pr-3">
+            Resultado de la evaluación
+            </label>
+            <div className="md:col-span-2">
+              <select
+              className="w-full"
+              value={value.aprobado_evaluador ?? ""}
+              onChange={(e) =>
+                onChange("aprobado_evaluador", e.target.value as any)
+              }
+              disabled={!canEditObsCalidadPlan}
+              aria-disabled={!canEditObsCalidadPlan}
+              >
+                <option value="">-- Selecciona --</option>
+                <option value="Aprobado">Plan habilitado para seguimiento</option>
+                <option value="Rechazado">Plan devuleto para ajustes</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Solo el equipo evaluador puede modificar este campo.
+                  Si está <strong>Aprobado</strong>, se habilita el seguimiento de la acción.
+                  </p>
+                  </div>
+                  </div>
 
         {/* Observación del equipo de la DDCS (PLAN) */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

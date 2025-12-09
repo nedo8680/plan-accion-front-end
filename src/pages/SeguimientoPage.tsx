@@ -129,15 +129,20 @@ export default function SeguimientoPage() {
   
   
   const hasSeguimientoActual =
-    Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
+  Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
 
 
   const isDraftPlan =
-    estadoPlanActual === "Borrador" && !hasSeguimientoActual;
+  estadoPlanActual === "Borrador" && !hasSeguimientoActual;
+  
+  const isPlanAprobado =
+  (currentAny?.aprobado_evaluador as string) === "Aprobado"; 
 
   // Bloque de seguimiento visible solo si hay plan y NO está en borrador
   const isSeguimientoVisible =
-    Boolean(currentAny?.plan_id) && !isDraftPlan;
+  Boolean(currentAny?.plan_id) &&
+  !isDraftPlan &&
+  isPlanAprobado;
 
 
   // Regla: la entidad NO puede reenviar/modificar seguimientos que ya no están en "Pendiente"
@@ -180,7 +185,7 @@ export default function SeguimientoPage() {
 
         const saved = await saveCurrent(overrides);
         if (!saved) return;
-        alert("Acción de mejora enviada con éxito");
+        alert("Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS");
       } else {
         // admin / auditor simplemente guardan cambios
         const saved = await saveCurrent({} as any);

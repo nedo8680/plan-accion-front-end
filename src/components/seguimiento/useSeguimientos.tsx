@@ -22,7 +22,10 @@ export type Plan = {
   observacion_calidad?: string | null;
   seguimientos?: Seguimiento[];
   indicador?: string | null;
+
+  aprobado_evaluador?: string | null; 
 };
+
 
 export type Seguimiento = {
   id?: number;
@@ -56,6 +59,8 @@ export type UnifiedForm = Seguimiento & {
   estado?: string | null;
   plan_descripcion_actividades?: string | null;
   plan_evidencia_cumplimiento?: string | null;
+
+  aprobado_evaluador?: string | null;
 };
 
 export const emptyForm = (): UnifiedForm => ({
@@ -77,6 +82,8 @@ export const emptyForm = (): UnifiedForm => ({
   indicador: "",
   fecha_reporte: "",
   estado: "Borrador",
+
+  aprobado_evaluador: "",
 });
 
 function toNull(v?: string | null) {
@@ -259,6 +266,11 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
         first?.accion_mejora_planteada ??
         "",
       indicador: first?.indicador ?? (plan as any).indicador ?? "", 
+  
+      aprobado_evaluador:
+      (plan as any).aprobado_evaluador ??
+      (first as any)?.aprobado_evaluador ??
+      "",
     });
   }
 
@@ -300,6 +312,8 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       evidencia_cumplimiento: toNull(form.plan_evidencia_cumplimiento),
       fecha_inicio: toNull(form.fecha_inicio),
       fecha_final: toNull(form.fecha_final),
+
+      aprobado_evaluador: toNull((form as any).aprobado_evaluador as any),
     };
 
     const created: Plan = await api("/seguimiento", {
@@ -311,6 +325,11 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       ...created,
       indicador: form.indicador ?? (created as any).indicador ?? "",
       estado: "Borrador",
+
+      aprobado_evaluador:
+      (created as any).aprobado_evaluador ??
+      (form as any).aprobado_evaluador ??
+      null,
     };
 
     setPlans((prev) => [createdWithIndicador, ...prev]);
@@ -462,6 +481,11 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: base.enlace_entidad ?? "",
       estado: nextEstado ?? prev.estado ?? null,
+  
+      aprobado_evaluador:
+      (base as any).aprobado_evaluador ??
+      prev.aprobado_evaluador ??
+      null,
     }));
     setPlanMissingKeys([]);
 
@@ -473,6 +497,11 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
               ...p,
               enlace_entidad: base.enlace_entidad ?? p.enlace_entidad,
               estado: nextEstado ?? p.estado ?? null,
+
+              aprobado_evaluador:
+              (base as any).aprobado_evaluador ??
+              (p as any).aprobado_evaluador ??
+              null,
             }
           : p
       )
@@ -548,10 +577,6 @@ async function addChildImmediate() {
 
 async function removeById(id: number) {
   if (!activePlanId || !id) return;
-  if (!isAdmin) {
-    console.warn("removeById: solo un admin puede eliminar seguimientos");
-    return;
-  }
 
   // 1) Borrar en backend
   await api(`/seguimiento/${activePlanId}/seguimiento/${id}`, { method: "DELETE" });
@@ -605,13 +630,9 @@ async function removeById(id: number) {
 }
 
 
-async function removePlan(id?: number) {
+  async function removePlan(id?: number) {
     const planId = id ?? activePlanId;
     if (!planId) return;
-    if (!isAdmin) {
-      console.warn("removePlan: solo un admin puede eliminar planes");
-      return;
-    }
     await api(`/seguimiento/${planId}`, { method: "DELETE" });
     setPlans((prev) => prev.filter((p) => p.id !== planId));
     if (activePlanId === planId) {
