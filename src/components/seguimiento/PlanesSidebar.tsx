@@ -141,7 +141,7 @@ export default function PlanesSidebar({
       <div className="mb-2">
         <input
           className="w-full rounded-md border px-3 py-2 text-sm"
-          placeholder="Buscar planes…"
+          placeholder="Buscar entidad…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />

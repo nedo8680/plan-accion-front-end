@@ -326,6 +326,20 @@ export default function AdminUsers() {
         {/* Form crear usuario */}
         <form onSubmit={handleCreate} className="mb-8 rounded-lg border bg-white p-4 shadow-sm">
           <div className="grid gap-3 sm:grid-cols-4">
+
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Rol</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+                className="w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
+              >
+                <option value="entidad">Entidad</option>
+                <option value="auditor">Evaluador</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
             {role === "entidad" ? (
               <div className="sm:col-span-1">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Entidad/Usuario</label>
@@ -406,18 +420,6 @@ export default function AdminUsers() {
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
-            </div>
-            <div className="sm:col-span-1">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Rol</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                className="w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-yellow-300"
-              >
-                <option value="entidad">Entidad</option>
-                <option value="auditor">Evaluador</option>
-                <option value="admin">Admin</option>
-              </select>
             </div>
 
             {/* Permiso SOLO si rol = entidad */}

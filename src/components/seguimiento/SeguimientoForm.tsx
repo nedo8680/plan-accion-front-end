@@ -86,8 +86,8 @@ export default function SeguimientoForm({
 
   const MAX_DESC_ACTIVIDADES = 300;
   const MAX_PLAN_EVIDENCIA = 300;
-  const MAX_OBS_DDCS = 300;
-  const MAX_OBS_DDCS_SEG = 300;
+  const MAX_OBS_DDCS = 500;
+  const MAX_OBS_DDCS_SEG = 500;
 
   const MAX_UPLOAD_MB = 5;
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -379,7 +379,11 @@ export default function SeguimientoForm({
         <div className="md:col-span-2">
           <input
             value={value.enlace_entidad ?? ""}
-            onChange={(e) => onChange("enlace_entidad", e.target.value)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const limpio = raw.replace(/[^a-zA-ZÁÉÍÓÚáéíóúÑñ\s]/g, "");
+              onChange("enlace_entidad", limpio);
+            }}
             disabled={!canEditEnlaceEntidad || !!ro["enlace_entidad"]}
             aria-disabled={!canEditEnlaceEntidad || !!ro["enlace_entidad"]}
             required={canEditEnlaceEntidad}
@@ -593,20 +597,6 @@ export default function SeguimientoForm({
               </div>
             )}
 
-            {canEditPlanBlock &&
-              !!value.accion_mejora_planteada?.trim() &&
-              onRequestNewPlanFromAction && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onRequestNewPlanFromAction(value.accion_mejora_planteada!.trim())
-                  }
-                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
-                >
-                  <span className="text-base leading-none">＋</span>
-                  <span>Crear otra acción de mejora</span>
-                </button>
-              )}
           </div>
         </div>
 
@@ -676,7 +666,13 @@ export default function SeguimientoForm({
               className={`w-full ${hasPlanError("fecha_inicio") ? "border border-red-500 bg-red-50" : ""}`}
               required
               value={value.fecha_inicio ?? ""}
-              onChange={(e) => onChange("fecha_inicio", e.target.value)}
+              onChange={(e) => {
+                const nuevaInicio = e.target.value;
+                onChange("fecha_inicio", nuevaInicio);
+                if (value.fecha_final && value.fecha_final < nuevaInicio) {
+                  onChange("fecha_final", nuevaInicio);
+                }
+              }}
               disabled={!canEditPlanBlock || !!ro["fecha_inicio"]}
               aria-disabled={!canEditPlanBlock || !!ro["fecha_inicio"]}
               ref={planFieldRefs.fecha_inicio}
@@ -696,6 +692,7 @@ export default function SeguimientoForm({
               required={canEditPlanBlock}
               value={value.fecha_final ?? ""}
               onChange={(e) => onChange("fecha_final", e.target.value)}
+              min={value.fecha_inicio || undefined}
               disabled={!canEditPlanBlock || !!ro["fecha_final"]}
               aria-disabled={!canEditPlanBlock || !!ro["fecha_final"]}
               ref={planFieldRefs.fecha_final}
@@ -1032,6 +1029,23 @@ export default function SeguimientoForm({
           </div>
         </fieldset>
       )}
+
+ {canEditPlanBlock &&
+        !!value.accion_mejora_planteada?.trim() &&
+        onRequestNewPlanFromAction && (
+          <div className="mt-4 flex justify-start">
+            <button
+              type="button"
+              onClick={() =>
+                onRequestNewPlanFromAction(value.accion_mejora_planteada!.trim())
+              }
+              className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+            >
+              <span className="text-base leading-none">＋</span>
+              <span>Nueva acción de mejora asociada este indicador</span>
+            </button>
+          </div>
+        )}
 
       {footer && (
         <div className="mt-4 border-t border-gray-200 pt-4">
