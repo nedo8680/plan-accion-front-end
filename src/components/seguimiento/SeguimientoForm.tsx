@@ -86,8 +86,8 @@ export default function SeguimientoForm({
 
   const MAX_DESC_ACTIVIDADES = 300;
   const MAX_PLAN_EVIDENCIA = 300;
-  const MAX_OBS_DDCS = 300;
-  const MAX_OBS_DDCS_SEG = 300;
+  const MAX_OBS_DDCS = 500;
+  const MAX_OBS_DDCS_SEG = 500;
 
   const MAX_UPLOAD_MB = 5;
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
