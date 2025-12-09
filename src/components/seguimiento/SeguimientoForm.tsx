@@ -668,6 +668,13 @@ export default function SeguimientoForm({
               required
               value={value.fecha_inicio ?? ""}
               onChange={(e) => onChange("fecha_inicio", e.target.value)}
+              onChange={(e) => {
+                const nuevaInicio = e.target.value;
+                onChange("fecha_inicio", nuevaInicio);
+                if (value.fecha_final && value.fecha_final < nuevaInicio) {
+                  onChange("fecha_final", nuevaInicio);
+                }
+              }}
               disabled={!canEditPlanBlock || !!ro["fecha_inicio"]}
               aria-disabled={!canEditPlanBlock || !!ro["fecha_inicio"]}
               ref={planFieldRefs.fecha_inicio}
