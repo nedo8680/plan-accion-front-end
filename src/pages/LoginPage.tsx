@@ -6,8 +6,8 @@ import { FaLock } from "react-icons/fa";
 export default function LoginPage() {
   const { login, user } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("admin@demo.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="admin@demo.com"
+              placeholder="Ingresa tu correo"
             />
           </div>
           <div className="space-y-1">
@@ -74,7 +74,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="mt-3 text-xs text-gray-500">
-          Demo: admin@demo.com - admin123 / cvp@mail.com - qwerty123 / profesionalddcs@demo.com  - ProfDDCS123
+          Demo: cvp@mail.com - qwerty123 / profesionalddcs@demo.com  - ProfDDCS123 / admin@demo.com - admin123 
         </div>
       </div>
     </div>

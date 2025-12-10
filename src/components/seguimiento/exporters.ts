@@ -23,7 +23,7 @@ const COLS: Col[] = [
   { key: "nombre_entidad",           title: "Nombre entidad" },
   { key: "enlace_entidad",           title: "Enlace entidad" },
   { key: "indicador",                title: "Indicador" },
-  { key: "insumo_mejora",            title: "Insumo de mejora" },
+  { key: "criterio",                 title: "Criterio" },
   { key: "tipo_accion_mejora",       title: "Tipo de acción" },
   { key: "observacion_informe_calidad", title: "Acción recomendada (Informe calidad)" },
   { key: "accion_mejora_planteada",  title: "Acción de mejora planteada" },
@@ -51,7 +51,7 @@ function buildRowsForPlan(plan: Plan | null, items: Seguimiento[]) {
     nombre_entidad: plan?.nombre_entidad ?? "",
     enlace_entidad: plan?.enlace_entidad ?? "",
     indicador: plan?.indicador ?? s.indicador ?? "",
-    insumo_mejora: plan?.insumo_mejora ?? s.insumo_mejora ?? "",
+    criterio: plan?.criterio ?? s.criterio ?? "",
     tipo_accion_mejora: plan?.tipo_accion_mejora ?? s.tipo_accion_mejora ?? "",
     observacion_informe_calidad: s.observacion_informe_calidad ?? "",
     accion_mejora_planteada: plan?.accion_mejora_planteada ?? s.accion_mejora_planteada ?? "",
@@ -133,7 +133,8 @@ export async function exportAllSeguimientosXLSX(groups: SeguimientoExportGroup[]
       3: 36,  // Nombre entidad
       4: 42,  // Enlace entidad
       5: 28,  // Indicador
-      6: 24,  // Insumo
+      6: 28,  // Criterio
+      7: 24,  // Tipo acción
       8: 32,  // Acción recomendada
       9: 32,  // Acción de mejora
       10: 42, // Desc actividades plan
@@ -182,7 +183,7 @@ export async function exportAllSeguimientosPDF(groups: SeguimientoExportGroup[])
     3: 120, // Nombre entidad
     4: 130, // Enlace entidad
     5: 90,  // Indicador
-    6: 90,  // Insumo mejora
+    6: 90,  // Criterio
     7: 90,  // Tipo acción
     8: 130, // Acción recomendada
     9: 130, // Acción de mejora

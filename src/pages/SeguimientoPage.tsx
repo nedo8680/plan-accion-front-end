@@ -139,14 +139,13 @@ export default function SeguimientoPage() {
   const isDraftPlan =
   estadoPlanActual === "Borrador" && !hasSeguimientoActual;
   
+  const isPlanHabilitado =
+    (estadoPlanActual || "").toLowerCase() === "plan habilitado para seguimiento";
   const isPlanAprobado =
-  (currentAny?.aprobado_evaluador as string) === "Aprobado"; 
+    (currentAny?.aprobado_evaluador as string) === "Aprobado" || isPlanHabilitado; 
 
-  // Bloque de seguimiento visible solo si hay plan y NO está en borrador
   const isSeguimientoVisible =
-  Boolean(currentAny?.plan_id) &&
-  !isDraftPlan &&
-  isPlanAprobado;
+    Boolean(currentAny?.plan_id) && isPlanAprobado;
 
 
   // Regla: la entidad NO puede reenviar/modificar seguimientos que ya no están en "Pendiente"
@@ -155,6 +154,8 @@ export default function SeguimientoPage() {
 
   const activeChild = children[pagerIndex] ?? null;
   const activeChildId = activeChild?.id;
+  const puedeAjustarSeguimiento =
+    isEntidad && !!activeChildId && !!(activeChild?.observacion_calidad || "").trim();
 
   // permisos
   const canDeleteChild = !!currentSeguimientoId && isAdmin;
@@ -384,32 +385,35 @@ export default function SeguimientoPage() {
                 usedIndicadores={usedIndicadores}  
                 missingPlanKeys={planMissingKeys}
                 header={
-                  <SeguimientoTabs
-                    items={children}
-                    activeId={activeChildId}
-                    onSelect={(id) => {
-                      const idx = children.findIndex((c) => c.id === id);
-                      if (idx >= 0) setActiveChild(idx);
-                      focusForm();
-                    }}
-                    onAdd={async () => {
-                    try {
-                      await addChildImmediate();
-                      focusForm();
-                    } catch (e: any) {
-                      alert(e?.message ?? "No se pudo crear el seguimiento.");
-                    }
-                  }}
+                  isPlanAprobado ? (
+                    <SeguimientoTabs
+                      items={children}
+                      activeId={activeChildId}
+                      onSelect={(id) => {
+                        const idx = children.findIndex((c) => c.id === id);
+                        if (idx >= 0) setActiveChild(idx);
+                        focusForm();
+                      }}
+                      onAdd={async () => {
+                        const parentId = puedeAjustarSeguimiento ? activeChildId : undefined;
+                        try {
+                          await addChildImmediate(parentId);
+                          focusForm();
+                        } catch (e: any) {
+                          alert(e?.message ?? "No se pudo crear el seguimiento.");
+                        }
+                      }}
 
-                    onDelete={() => {
-                      if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
-                        removeById(currentSeguimientoId);
-                      }
-                    }}
+                      onDelete={() => {
+                        if (currentSeguimientoId && confirm("¿Eliminar este seguimiento?")) {
+                          removeById(currentSeguimientoId);
+                        }
+                      }}
 
-                    canAdd={canAddChild}
-                    canDelete={canDeleteChild}
-                  />
+                      canAdd={canAddChild}
+                      canDelete={canDeleteChild}
+                    />
+                  ) : null
                 }
                 planActions={
                   !isAuditor && isSeguimientoVisible ? (
@@ -418,7 +422,8 @@ export default function SeguimientoPage() {
                         type="button"
                         onClick={async () => {
                           try {
-                            await addChildImmediate();
+                            const parentId = puedeAjustarSeguimiento ? activeChildId : undefined;
+                            await addChildImmediate(parentId);
                             focusForm();
                           } catch (e: any) {
                             alert(e?.message ?? "No se pudo crear el seguimiento.");
@@ -431,7 +436,9 @@ export default function SeguimientoPage() {
                             : "bg-emerald-300 cursor-not-allowed"
                         }`}
                       >
-                        Agregar seguimiento
+                        {puedeAjustarSeguimiento
+                          ? "Agregar seguimiento de ajuste a observaciones del evaluador"
+                          : "Agregar seguimiento"}
                       </button>
                       <button
                         type="button"
@@ -486,20 +493,22 @@ export default function SeguimientoPage() {
             </section>
 
             {/* Historial (debajo en desktop; tab en móvil) */}
-            <section className={`${mobileTab === "history" ? "block" : "hidden lg:block"}`}>
-              <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                Historial de seguimientos
-              </h3>
-              <SeguimientosTimeline
-                items={children}
-                activeId={activeChildId}
-                onSelect={(id) => {
-                  const idx = children.findIndex((c) => c.id === id);
-                  if (idx >= 0) setActiveChild(idx);
-                  focusForm();
-                }}
-              />
-            </section>
+            {isPlanAprobado && (
+              <section className={`${mobileTab === "history" ? "block" : "hidden lg:block"}`}>
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                  Historial de seguimientos
+                </h3>
+                <SeguimientosTimeline
+                  items={children}
+                  activeId={activeChildId}
+                  onSelect={(id) => {
+                    const idx = children.findIndex((c) => c.id === id);
+                    if (idx >= 0) setActiveChild(idx);
+                    focusForm();
+                  }}
+                />
+              </section>
+            )}
           </div>
         </div>
       </main>

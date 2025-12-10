@@ -101,13 +101,9 @@ export default function SeguimientoForm({
 
   const isSeguimientoBase = Boolean(value.plan_id);
   const estadoPlan = value.estado ?? "Pendiente";
-  const hasSeguimientoActual = Boolean(value.id) || Boolean(value.fecha_reporte);
-  const hasSeguimientoPersisted = Boolean(value.id);
-
   const isDraftEstado = estadoPlan === "Borrador";
   const isPlanAprobado = value.aprobado_evaluador === "Aprobado";
-
-  const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
+  const canEditObsCalidadPlan = isAdmin || isAuditor;
 
   
   const hasPlanPersisted = Boolean(value.plan_id);
@@ -131,21 +127,22 @@ export default function SeguimientoForm({
     : "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador";
 
   const isSeguimientoVisible =
-   // isSeguimientoBase && (hasSeguimientoActual || !isDraftEstado);
-  isSeguimientoBase &&
-  !isDraftEstado &&
-  isPlanAprobado;
-
+    isSeguimientoBase && isPlanAprobado;
   const estadoSeguimiento = (value.seguimiento as string) || "Pendiente";
   const updatedByEmail = ((value as any).updated_by_email || "").toString().trim().toLowerCase();
 
   const isBloqueadoEntidadSeguimiento =
     isEntidad && isSeguimientoVisible && estadoSeguimiento !== "Pendiente";
 
-  const canEditCamposEntidadSeguimiento =
-    (isAdmin || isEntidad) && !isBloqueadoEntidadSeguimiento;
   const entidadYaEnvioActividades =
     isEntidad && Boolean((value as any)._saved_by_entidad);
+
+  const isSeguimientoCerradoEntidad =
+    isEntidad && (isBloqueadoEntidadSeguimiento || entidadYaEnvioActividades);
+
+  const canEditCamposEntidadSeguimiento =
+    (isAdmin || isEntidad) && !isSeguimientoCerradoEntidad;
+
   const canEditActividadesEntidad =
     canEditCamposEntidadSeguimiento && !entidadYaEnvioActividades;
 
@@ -802,6 +799,23 @@ export default function SeguimientoForm({
           </div>
         </div>
       </fieldset>
+      
+      {shouldShowNewActionButton && (
+        <div className="mt-4 flex justify-start">
+          <button
+            type="button"
+            onClick={() =>
+              onRequestNewPlanFromAction?.(
+                (value.accion_mejora_planteada ?? "").trim()
+              )
+            }
+            className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+          >
+            <span className="text-base leading-none">＋</span>
+            <span>{newActionButtonLabel}</span>
+          </button>
+        </div>
+      )}       
 
       {planActions && (
         <div className="mt-4 flex justify-end gap-2">
@@ -1106,23 +1120,6 @@ export default function SeguimientoForm({
             </div>
           </div>
         </fieldset>
-      )}
-
-      {shouldShowNewActionButton && (
-        <div className="mt-4 flex justify-start">
-          <button
-            type="button"
-            onClick={() =>
-              onRequestNewPlanFromAction?.(
-                (value.accion_mejora_planteada ?? "").trim()
-              )
-            }
-            className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
-          >
-            <span className="text-base leading-none">＋</span>
-            <span>{newActionButtonLabel}</span>
-          </button>
-        </div>
       )}
 
       {footer && (

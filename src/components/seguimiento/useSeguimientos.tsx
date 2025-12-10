@@ -30,6 +30,7 @@ export type Plan = {
 export type Seguimiento = {
   id?: number;
   plan_id?: number;
+  ajuste_de_id?: number | null;
 
   observacion_informe_calidad?: string | null; // entidad
   insumo_mejora?: string | null;
@@ -69,6 +70,7 @@ export type UnifiedForm = Seguimiento & {
 export const emptyForm = (): UnifiedForm => ({
   nombre_entidad: "",
   enlace_entidad: "",
+  ajuste_de_id: undefined,
   observacion_informe_calidad: "",
   observacion_calidad: "",
   insumo_mejora: "",
@@ -100,6 +102,7 @@ function buildPlanPayload(base: UnifiedForm) {
   return {
     nombre_entidad: base.nombre_entidad?.trim() ?? "",
     enlace_entidad: toNull(base.enlace_entidad),
+    ajuste_de_id: base.ajuste_de_id ?? undefined,
     insumo_mejora: toNull(base.insumo_mejora),
     indicador: toNull(base.indicador),
     criterio: toNull(base.criterio),   
@@ -440,19 +443,20 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
     const planId = await ensurePlanExists();
 
     const planPayload = buildPlanPayload(base);
-    if (planId && (isAdmin || isAuditor)) {
+
+    if (planId) {
       try {
         await api(`/seguimiento/${planId}`, {
           method: "PUT",
           body: JSON.stringify(planPayload),
         });
       } catch (e) {
-        console.error("useSeguimientos: no se pudo actualizar aprobado_evaluador", e);
+        console.error("useSeguimientos: no se pudo actualizar el plan", e);
       }
     }
-    
-
+  
     const childPayload: Seguimiento = {
+      ajuste_de_id: base.ajuste_de_id ?? null,
       observacion_informe_calidad: toNull(base.observacion_informe_calidad),
       insumo_mejora: toNull(base.insumo_mejora),
       tipo_accion_mejora: toNull(base.tipo_accion_mejora),
@@ -544,6 +548,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
       ...prev,
       ...(overrides ? { ...saved, ...overrides } : saved),
       plan_id: planId,
+      ajuste_de_id: saved.ajuste_de_id ?? prev.ajuste_de_id ?? null,
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: base.enlace_entidad ?? "",
       estado: nextEstado ?? prev.estado ?? null,
@@ -593,7 +598,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
   }
 
 
-async function addChildImmediate() {
+async function addChildImmediate(ajusteDeId?: number | null) {
   const planId = await ensurePlanExists();
 
   const planActual = plans.find((p) => p.id === planId) || null;
@@ -604,6 +609,7 @@ async function addChildImmediate() {
   const payload: Seguimiento = {
     seguimiento: "Pendiente",
     enlace_entidad: enlaceBase,
+    ajuste_de_id: ajusteDeId ?? null,
   };
 
   const created: Seguimiento = await api(`/seguimiento/${planId}/seguimiento`, {
@@ -625,6 +631,7 @@ async function addChildImmediate() {
     // Identidad del seguimiento actual
     id: withEnlace.id,
     plan_id: planId,
+    ajuste_de_id: ajusteDeId ?? null,
 
     // Mantener nombre de entidad del contexto
     nombre_entidad:
@@ -677,6 +684,7 @@ async function removeById(id: number) {
         estado: prev.estado ?? null,
         aprobado_evaluador: (prev as any).aprobado_evaluador ?? null,
         plan_observacion_calidad: prev.plan_observacion_calidad ?? null,
+        ajuste_de_id: prev.ajuste_de_id ?? null,
         insumo_mejora: prev.insumo_mejora ?? "",
         tipo_accion_mejora: prev.tipo_accion_mejora ?? "",
         accion_mejora_planteada: prev.accion_mejora_planteada ?? "",
@@ -698,6 +706,7 @@ async function removeById(id: number) {
           evidencia_cumplimiento: next.evidencia_cumplimiento ?? "",
           observacion_informe_calidad: next.observacion_informe_calidad ?? planBase.observacion_informe_calidad,
           observacion_calidad: next.observacion_calidad ?? planBase.observacion_calidad,
+          ajuste_de_id: next.ajuste_de_id ?? planBase.ajuste_de_id,
           insumo_mejora: next.insumo_mejora ?? planBase.insumo_mejora,
           tipo_accion_mejora: next.tipo_accion_mejora ?? planBase.tipo_accion_mejora,
           accion_mejora_planteada: next.accion_mejora_planteada ?? planBase.accion_mejora_planteada,
@@ -712,6 +721,7 @@ async function removeById(id: number) {
         return {
           ...planBase,
           id: undefined,
+          ajuste_de_id: undefined,
           descripcion_actividades: "",
           evidencia_cumplimiento: "",
           fecha_reporte: "",
@@ -756,6 +766,7 @@ async function removeById(id: number) {
       // Identidad del seguimiento activo
       id: child.id,
       plan_id: activePlanId ?? child.plan_id,
+      ajuste_de_id: child.ajuste_de_id ?? prev.ajuste_de_id,
 
       // Campos propios del SEGUIMIENTO (bloque de abajo)
       descripcion_actividades: child.descripcion_actividades ?? "",
