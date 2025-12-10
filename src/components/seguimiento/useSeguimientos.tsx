@@ -61,6 +61,8 @@ export type UnifiedForm = Seguimiento & {
   plan_evidencia_cumplimiento?: string | null;
 
   aprobado_evaluador?: string | null;
+  plan_observacion_calidad?: string | null;
+  _saved_by_entidad?: boolean;
 };
 
 export const emptyForm = (): UnifiedForm => ({
@@ -84,10 +86,28 @@ export const emptyForm = (): UnifiedForm => ({
   estado: "Borrador",
 
   aprobado_evaluador: "",
+  plan_observacion_calidad: "",
+  _saved_by_entidad: false,
 });
 
 function toNull(v?: string | null) {
   return !v || v.trim() === "" ? null : v;
+}
+
+function buildPlanPayload(base: UnifiedForm) {
+  return {
+    nombre_entidad: base.nombre_entidad?.trim() ?? "",
+    enlace_entidad: toNull(base.enlace_entidad),
+    insumo_mejora: toNull(base.insumo_mejora),
+    tipo_accion_mejora: toNull(base.tipo_accion_mejora),
+    accion_mejora_planteada: toNull(base.accion_mejora_planteada),
+    descripcion_actividades: toNull(base.plan_descripcion_actividades),
+    evidencia_cumplimiento: toNull(base.plan_evidencia_cumplimiento),
+    fecha_inicio: toNull(base.fecha_inicio),
+    fecha_final: toNull(base.fecha_final),
+    observacion_calidad: toNull(base.plan_observacion_calidad),
+    aprobado_evaluador: toNull((base as any).aprobado_evaluador as any),
+  };
 }
 
 export function useSeguimientos() {
@@ -103,6 +123,10 @@ export function useSeguimientos() {
     return u?.email ?? u?.sub ?? null;
    
   }, [user]);
+  const actorEmailLower = useMemo(
+    () => (actorEmail || "").toString().trim().toLowerCase(),
+    [actorEmail]
+  );
 
   // PADRES
   const [createdOrder, setCreatedOrder] = useState<"asc" | "desc">("desc");
@@ -122,6 +146,13 @@ export function useSeguimientos() {
       setPlans(data);
     })();
   }, []);
+  const [autoSelected, setAutoSelected] = useState(false);
+  useEffect(() => {
+    if (autoSelected) return;
+    if (!plans.length) return;
+    setAutoSelected(true);
+    setActive(plans[0].id);
+  }, [plans, autoSelected]);
 
   function toDate(v?: string | null) {
     if (!v) return null;
@@ -230,8 +261,16 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
 
   async function setActive(idxOrId: number) {
     setPlanMissingKeys([]);
-    const plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
+    let plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
     if (!plan) return;
+
+    try {
+      const refreshed: Plan = await api(`/seguimiento/${plan.id}`);
+      plan = { ...plan, ...refreshed };
+      setPlans((prev) => prev.map((p) => (p.id === plan!.id ? plan! : p)));
+    } catch (e) {
+      console.warn("useSeguimientos: no se pudo refrescar plan", e);
+    }
 
     setActivePlanId(plan.id);
 
@@ -251,6 +290,14 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     setChildren(safeSegs);
 
     const first = segs[0];
+    const savedByEntidad =
+      !!actorEmailLower &&
+      first &&
+      ((first as any).updated_by_email || "")
+        .toString()
+        .trim()
+        .toLowerCase() === actorEmailLower &&
+      !!(first.descripcion_actividades || "").trim();
 
     setForm({
       ...(first ?? emptyForm()),
@@ -261,6 +308,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       estado: plan.estado,
       plan_descripcion_actividades: plan.descripcion_actividades ?? "",
       plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? "",
+      plan_observacion_calidad: plan.observacion_calidad ?? "",
       accion_mejora_planteada:
         plan.accion_mejora_planteada ??
         first?.accion_mejora_planteada ??
@@ -271,6 +319,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       (plan as any).aprobado_evaluador ??
       (first as any)?.aprobado_evaluador ??
       "",
+      _saved_by_entidad: savedByEntidad,
     });
   }
 
@@ -302,19 +351,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     const nombre = form.nombre_entidad?.trim();
     if (!nombre) throw new Error("Ingresa el nombre de la entidad para crear el plan.");
 
-    const planPayload = {
-      nombre_entidad: nombre,
-      enlace_entidad: toNull(form.enlace_entidad),
-      insumo_mejora: toNull(form.insumo_mejora),
-      tipo_accion_mejora: toNull(form.tipo_accion_mejora),
-      accion_mejora_planteada: toNull(form.accion_mejora_planteada),
-      descripcion_actividades: toNull(form.plan_descripcion_actividades),
-      evidencia_cumplimiento: toNull(form.plan_evidencia_cumplimiento),
-      fecha_inicio: toNull(form.fecha_inicio),
-      fecha_final: toNull(form.fecha_final),
-
-      aprobado_evaluador: toNull((form as any).aprobado_evaluador as any),
-    };
+    const planPayload = buildPlanPayload(form);
 
     const created: Plan = await api("/seguimiento", {
       method: "POST",
@@ -385,6 +422,18 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       return null;
     }
     const planId = await ensurePlanExists();
+
+    const planPayload = buildPlanPayload(base);
+    if (planId && (isAdmin || isAuditor)) {
+      try {
+        await api(`/seguimiento/${planId}`, {
+          method: "PUT",
+          body: JSON.stringify(planPayload),
+        });
+      } catch (e) {
+        console.error("useSeguimientos: no se pudo actualizar aprobado_evaluador", e);
+      }
+    }
     
 
     const childPayload: Seguimiento = {
@@ -481,15 +530,27 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: base.enlace_entidad ?? "",
       estado: nextEstado ?? prev.estado ?? null,
-  
+
       aprobado_evaluador:
       (base as any).aprobado_evaluador ??
       prev.aprobado_evaluador ??
       null,
+      plan_observacion_calidad:
+        base.plan_observacion_calidad ??
+        prev.plan_observacion_calidad ??
+        null,
+      _saved_by_entidad:
+        prev._saved_by_entidad ||
+        (isEntidad &&
+          !!actorEmailLower &&
+          ((saved as any).updated_by_email || "")
+            .toString()
+            .trim()
+            .toLowerCase() === actorEmailLower &&
+          !!(saved.descripcion_actividades || base.descripcion_actividades || "").trim()),
     }));
     setPlanMissingKeys([]);
 
-    // actualizar también la lista de planes (la que usa PlanesSidebar)
     setPlans((prev) =>
       prev.map((p) =>
         p.id === planId
@@ -502,6 +563,10 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
               (base as any).aprobado_evaluador ??
               (p as any).aprobado_evaluador ??
               null,
+              observacion_calidad:
+                base.plan_observacion_calidad ??
+                (p as any).observacion_calidad ??
+                null,
             }
           : p
       )
@@ -568,6 +633,7 @@ async function addChildImmediate() {
       "",
 
     indicador: withEnlace.indicador ?? prev.indicador ?? "",
+    _saved_by_entidad: false,
   }));
 
   return withEnlace;
@@ -591,36 +657,52 @@ async function removeById(id: number) {
   
   setForm((prev) => {
     if (prev.id === id || !prev.id) {
+      const planBase = {
+        plan_id: activePlanId,
+        nombre_entidad: prev.nombre_entidad,
+        enlace_entidad: prev.enlace_entidad ?? "",
+        estado: prev.estado ?? null,
+        aprobado_evaluador: (prev as any).aprobado_evaluador ?? null,
+        plan_observacion_calidad: prev.plan_observacion_calidad ?? null,
+        insumo_mejora: prev.insumo_mejora ?? "",
+        tipo_accion_mejora: prev.tipo_accion_mejora ?? "",
+        accion_mejora_planteada: prev.accion_mejora_planteada ?? "",
+        plan_descripcion_actividades: prev.plan_descripcion_actividades ?? "",
+        plan_evidencia_cumplimiento: prev.plan_evidencia_cumplimiento ?? "",
+        fecha_inicio: prev.fecha_inicio ?? "",
+        fecha_final: prev.fecha_final ?? "",
+        indicador: prev.indicador ?? "",
+        observacion_informe_calidad: prev.observacion_informe_calidad ?? "",
+        observacion_calidad: prev.observacion_calidad ?? "",
+      };
       if (nextChildren.length > 0) {
         const next = nextChildren[nextChildren.length - 1];
 
         return {
-          ...emptyForm(),
+          ...planBase,
           ...next,
-          plan_id: activePlanId,
-          // Mantener nombre y enlace de la entidad que ya tenía el usuario
-          nombre_entidad: prev.nombre_entidad,
-          enlace_entidad: prev.enlace_entidad ?? "",
           // Normalizar campos a string para evitar undefined
           evidencia_cumplimiento: next.evidencia_cumplimiento ?? "",
-          observacion_informe_calidad: next.observacion_informe_calidad ?? "",
-          observacion_calidad: next.observacion_calidad ?? "",
-          insumo_mejora: next.insumo_mejora ?? "",
-          tipo_accion_mejora: next.tipo_accion_mejora ?? "",
-          accion_mejora_planteada: next.accion_mejora_planteada ?? "",
+          observacion_informe_calidad: next.observacion_informe_calidad ?? planBase.observacion_informe_calidad,
+          observacion_calidad: next.observacion_calidad ?? planBase.observacion_calidad,
+          insumo_mejora: next.insumo_mejora ?? planBase.insumo_mejora,
+          tipo_accion_mejora: next.tipo_accion_mejora ?? planBase.tipo_accion_mejora,
+          accion_mejora_planteada: next.accion_mejora_planteada ?? planBase.accion_mejora_planteada,
           descripcion_actividades: next.descripcion_actividades ?? "",
-          fecha_inicio: next.fecha_inicio ?? "",
-          fecha_final: next.fecha_final ?? "",
+          fecha_inicio: next.fecha_inicio ?? planBase.fecha_inicio,
+          fecha_final: next.fecha_final ?? planBase.fecha_final,
           fecha_reporte: next.fecha_reporte ?? "",
           seguimiento: next.seguimiento ?? "Pendiente",
-          indicador: next.indicador ?? "",
+          indicador: next.indicador ?? planBase.indicador,
         };
       } else {
         return {
-          ...emptyForm(),
-          nombre_entidad: prev.nombre_entidad,
-          enlace_entidad: prev.enlace_entidad ?? "",
-          plan_id: activePlanId,
+          ...planBase,
+          id: undefined,
+          descripcion_actividades: "",
+          evidencia_cumplimiento: "",
+          fecha_reporte: "",
+          seguimiento: "Pendiente",
         };
       }
     }
@@ -648,6 +730,13 @@ async function removeById(id: number) {
     const safe = Math.max(0, Math.min(i, children.length - 1));
     const child = children[safe];
     if (!child) return;
+    const savedByEntidad =
+      !!actorEmailLower &&
+      ((child as any).updated_by_email || "")
+        .toString()
+        .trim()
+        .toLowerCase() === actorEmailLower &&
+      !!(child.descripcion_actividades || "").trim();
 
     setForm((prev) => ({
       ...prev,
@@ -664,14 +753,14 @@ async function removeById(id: number) {
       observacion_calidad:
         child.observacion_calidad ?? prev.observacion_calidad ?? "",
 
-      // Si esta observación la quieres por seguimiento, la mapeas así;
-      // si la quieres solo a nivel plan, quítala de aquí:
       observacion_informe_calidad:
         child.observacion_informe_calidad ??
         prev.observacion_informe_calidad ??
         "",
 
       indicador: child.indicador ?? prev.indicador ?? "",
+      _saved_by_entidad: savedByEntidad,
+      plan_observacion_calidad: prev.plan_observacion_calidad ?? null,
     }));
   }
 

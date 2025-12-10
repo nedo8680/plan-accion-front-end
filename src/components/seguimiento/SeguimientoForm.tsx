@@ -85,6 +85,7 @@ export default function SeguimientoForm({
 
   const anyUser = user as any;
   const entidadFromUser = (anyUser?.entidad || "").trim();
+  const userEmail = (anyUser?.email || anyUser?.sub || "").trim().toLowerCase();
 
   const MAX_DESC_ACTIVIDADES = 300;
   const MAX_PLAN_EVIDENCIA = 300;
@@ -101,6 +102,7 @@ export default function SeguimientoForm({
   const isSeguimientoBase = Boolean(value.plan_id);
   const estadoPlan = value.estado ?? "Pendiente";
   const hasSeguimientoActual = Boolean(value.id) || Boolean(value.fecha_reporte);
+  const hasSeguimientoPersisted = Boolean(value.id);
 
   const isDraftEstado = estadoPlan === "Borrador";
   
@@ -116,21 +118,24 @@ export default function SeguimientoForm({
   isPlanAprobado;
 
   const estadoSeguimiento = (value.seguimiento as string) || "Pendiente";
+  const updatedByEmail = ((value as any).updated_by_email || "").toString().trim().toLowerCase();
 
   const isBloqueadoEntidadSeguimiento =
     isEntidad && isSeguimientoVisible && estadoSeguimiento !== "Pendiente";
 
   const canEditCamposEntidadSeguimiento =
     (isAdmin || isEntidad) && !isBloqueadoEntidadSeguimiento;
+  const entidadYaEnvioActividades =
+    isEntidad && Boolean((value as any)._saved_by_entidad);
+  const canEditActividadesEntidad =
+    canEditCamposEntidadSeguimiento && !entidadYaEnvioActividades;
 
   const canEditSeguimientoEstado = isAdmin || isAuditor;
 
-  // Bloque Plan: editable mientras el plan esté en Borrador
   const canEditPlanBlock = canEditCamposEntidad && isDraftEstado;
   const canEditNombreEntidad = false;
   const canEditEnlaceEntidad = canEditCamposEntidad && isDraftEstado;
 
-  // Estado liviano para feedback de upload
   const [eviUploading, setEviUploading] = React.useState(false);
   const [eviError, setEviError] = React.useState<string | null>(null);
   const [eviHelpOpen, setEviHelpOpen] = React.useState(false);
@@ -152,7 +157,6 @@ export default function SeguimientoForm({
 
     return Array.from(map.values());
   }, [indicadoresApi]);
-
 
   // === Criterios según el indicador seleccionado ===
   const criteriosForIndicador = React.useMemo(() => {
@@ -326,13 +330,10 @@ export default function SeguimientoForm({
 
     if (!nextRow || !nextRow.indicador) return;
 
-    // Si es igual al que ya tiene, no hacemos nada
     if (nextRow.indicador === current) return;
 
-    // Asignar automáticamente el indicador disponible
     onChange("indicador", nextRow.indicador);
 
-    // Opcional: replicamos la lógica del select para rellenar acción y entidad
     if (nextRow.accion && !value.observacion_informe_calidad) {
       onChange("observacion_informe_calidad", nextRow.accion);
     }
@@ -746,8 +747,8 @@ export default function SeguimientoForm({
                   ? "bg-gray-50 opacity-60"
                   : ""
               }`}
-              value={value.observacion_calidad ?? ""}
-              onChange={(e) => onChange("observacion_calidad", e.target.value)}
+              value={(value as any).plan_observacion_calidad ?? ""}
+              onChange={(e) => onChange("plan_observacion_calidad" as any, e.target.value)}
               disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
               aria-disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
             />
@@ -855,8 +856,8 @@ export default function SeguimientoForm({
                 className="w-full min-h-28"
                 value={value.descripcion_actividades ?? ""}
                 onChange={(e) => onChange("descripcion_actividades", e.target.value)}
-                disabled={!canEditCamposEntidadSeguimiento || !!ro["descripcion_actividades"]}
-                aria-disabled={!canEditCamposEntidadSeguimiento || !!ro["descripcion_actividades"]}
+                disabled={!canEditActividadesEntidad || !!ro["descripcion_actividades"]}
+                aria-disabled={!canEditActividadesEntidad || !!ro["descripcion_actividades"]}
                 maxLength={MAX_DESC_ACTIVIDADES}
               />
               <p className="mt-1 text-xs text-gray-500 text-right">
@@ -1063,8 +1064,8 @@ export default function SeguimientoForm({
         </fieldset>
       )}
 
- {canEditPlanBlock &&
-        !!value.accion_mejora_planteada?.trim() &&
+      {canEditPlanBlock &&
+        hasMultipleActions &&
         onRequestNewPlanFromAction && (
           <div className="mt-4 flex justify-start">
             <button
