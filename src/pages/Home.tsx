@@ -52,7 +52,7 @@ export default function HomePage() {
               Con este sistema, la Secretaría General de la Alcaldía Mayor puede medir de manera automática y precisa la
               satisfacción de los ciudadanos en todos los canales de atención: presencial, virtual y telefónico.
               <br />
-              Captura datos clave, genera reportes detallados y haz seguimiento a los planes de mejora para garantizar un
+              Captura datos clave, genera reportes detallados y permite realizar seguimiento a los planes de mejora para garantizar un
               servicio público más eficiente, transparente y cercano a la ciudadanía.
             </p>
 
