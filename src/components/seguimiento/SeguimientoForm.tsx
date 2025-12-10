@@ -100,10 +100,17 @@ export default function SeguimientoForm({
   const canEditObsCalidad = isAdmin || isAuditor;
 
   const isSeguimientoBase = Boolean(value.plan_id);
-  const estadoPlan = value.estado ?? "Pendiente";
+  
   const hasSeguimientoActual = Boolean(value.id) || Boolean(value.fecha_reporte);
   const hasSeguimientoPersisted = Boolean(value.id);
 
+  const estadoPlan: string =
+  value.estado && value.estado.trim() !== ""
+  ? value.estado
+  : hasSeguimientoActual
+  ? "Pendiente"
+  : "Borrador";
+  
   const isDraftEstado = estadoPlan === "Borrador";
   
   const isPlanAprobado = value.aprobado_evaluador === "Aprobado";

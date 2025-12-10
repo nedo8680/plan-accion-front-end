@@ -128,13 +128,12 @@ export default function SeguimientoPage() {
   const estadoPlanActual: string | null =
     (currentAny?.estado as string) ?? null; 
   
-  
   const hasSeguimientoActual =
   Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
 
-
   const isDraftPlan =
-  estadoPlanActual === "Borrador" && !hasSeguimientoActual;
+  ((estadoPlanActual === "Borrador") || !estadoPlanActual) &&
+  !hasSeguimientoActual;
   
   const isPlanAprobado =
   (currentAny?.aprobado_evaluador as string) === "Aprobado"; 
