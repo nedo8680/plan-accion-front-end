@@ -13,6 +13,10 @@ const expectedCols = [
 export default function Dim6Uploader({ onProcessed }: Props) {
   const [fileInfo, setFileInfo] = useState<any[] | null>(null);
   const [validFile, setValidFile] = useState(false);
+  const [emptyDatabase, setEmptyDatabase] = useState(false);
+
+  // nuevo estado para mostrar banner de confirmación
+  const [showConfirmEmpty, setShowConfirmEmpty] = useState(false);
 
   const [validRows, setValidRows] = useState<any[]>([]);
   const [invalidRows, setInvalidRows] = useState<any[]>([]);
@@ -150,6 +154,28 @@ export default function Dim6Uploader({ onProcessed }: Props) {
     }
   };
 
+  // al hacer click en el botón, mostramos el banner de confirmación
+  const requestVaciarBaseDatos = () => {
+    setShowConfirmEmpty(true);
+  };
+
+  // esta función realiza la eliminación real (se ejecuta al confirmar)
+  const vaciarBaseDatos = async () => {
+    try {
+      const res = await api.del("/habilidades");
+      setEmptyDatabase(true);
+      setShowConfirmEmpty(false);
+      alert("Base de datos vaciada. Ahora puede cargar un nuevo archivo.");
+    } catch (err: any) {
+      setShowConfirmEmpty(false);
+      alert("Error al vaciar la base de datos: " + err.message);
+    }
+  };
+
+  const cancelarVaciar = () => {
+    setShowConfirmEmpty(false);
+  };
+
   // -----------------------------
   // UI
   // -----------------------------
@@ -162,7 +188,7 @@ export default function Dim6Uploader({ onProcessed }: Props) {
         borderRadius: 5,
         backgroundColor: "rgba(211, 45, 55, 0.08)",
         width: "50%",
-        minWidth: 320,
+        minWidth: 300,
       }}
     >
       <h4 style={{ marginTop: 0, fontWeight: "bold" }}>
@@ -252,6 +278,80 @@ export default function Dim6Uploader({ onProcessed }: Props) {
           >
             Actualizar sólo filas válidas
           </button>
+        </div>
+      )}
+
+      <div style={{ marginTop: 15, fontSize: 14 }}>
+        <strong>Nota:</strong> El archivo cargado complementará los datos
+        existentes en la base de datos para las habilidades reportadas.
+        <br />
+        Si desea comenzar desde cero, puede vaciar la base de datos antes de
+        cargar un nuevo archivo.
+      </div>
+      <button
+        onClick={requestVaciarBaseDatos}
+        style={{
+          marginTop: 10,
+          padding: "8px",
+          background: "#D32D37",
+          color: "white",
+          borderRadius: 4,
+          cursor: "pointer",
+        }}
+      >
+        Vaciar base de datos de habilidades
+      </button>
+
+      {/* Banner de confirmación */}
+      {showConfirmEmpty && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 6,
+            backgroundColor: "#fff4f4",
+            border: "1px solid #f5c2c2",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ color: "#D32D37", fontWeight: "bold" }}>
+            ¿Está seguro que desea vaciar la base de datos de habilidades?
+          </div>
+          <div style={{ fontSize: 13, color: "#333" }}>
+            Esta acción eliminará todos los registros y no se podrá deshacer.
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={vaciarBaseDatos}
+              style={{
+                flex: 1,
+                padding: 8,
+                background: "#D32D37",
+                color: "white",
+                borderRadius: 4,
+                cursor: "pointer",
+                border: "none",
+              }}
+            >
+              Confirmar eliminación
+            </button>
+            <button
+              onClick={cancelarVaciar}
+              style={{
+                flex: 1,
+                padding: 8,
+                background: "#eee",
+                color: "#333",
+                borderRadius: 4,
+                cursor: "pointer",
+                border: "1px solid #ccc",
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
     </div>
