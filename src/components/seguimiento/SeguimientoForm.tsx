@@ -99,42 +99,22 @@ export default function SeguimientoForm({
   const canEditCamposEntidad = isAdmin || isEntidad;
   const canEditObsCalidad = isAdmin || isAuditor;
 
-  const isSeguimientoBase = Boolean(value.plan_id);
+    const isSeguimientoBase = Boolean(value.plan_id);
   const hasSeguimientoPersisted = Boolean(value.id);
 
   const estadoRaw = (value.estado || "").trim();
 
-  // Campos obligatorios del PLAN
-  const requiredPlanKeys: (keyof UnifiedFormValue)[] = [
-    "enlace_entidad",
-    "indicador",
-    "insumo_mejora",
-    "tipo_accion_mejora",
-    "observacion_informe_calidad",
-    "accion_mejora_planteada",
-    "plan_descripcion_actividades",
-    "plan_evidencia_cumplimiento",
-    "fecha_inicio",
-    "fecha_final",
-  ];
-
-  const hasIncompletePlan = requiredPlanKeys.some((k) => {
-    const v = value[k];
-    if (v === null || v === undefined) return true;
-    const s = String(v).trim();
-    return s === "";
-  });
-
   const estadoPlan: string =
     estadoRaw !== ""
       ? estadoRaw
-      : hasIncompletePlan
-      ? "Borrador"
-      : "Pendiente";
+      : isSeguimientoBase
+      ? "Pendiente"
+      : "Borrador";
 
-  const isDraftEstado = estadoPlan === "Borrador" || hasIncompletePlan;
+  const isDraftEstado = estadoPlan === "Borrador";
 
   const isPlanAprobado = value.aprobado_evaluador === "Aprobado";
+
 
   const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
 
