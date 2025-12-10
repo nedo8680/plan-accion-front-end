@@ -145,6 +145,11 @@ export default function SeguimientoForm({
   const eviHelpRef = React.useRef<HTMLDivElement | null>(null);
   const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
 
+  const usedIndicadoresSet = React.useMemo(
+  () => new Set((usedIndicadores ?? []).filter(Boolean)),
+  [usedIndicadores]
+);
+
   const canShowNewPlanFromActionButton =
   (isAdmin || isEntidad) &&
   !!onRequestNewPlanFromAction &&
@@ -184,14 +189,13 @@ export default function SeguimientoForm({
   }, [indicadoresApi, value.indicador]);
 
 
-  // 👇 NUEVO: saber si el plan ya existe en BD
+  //saber si el plan ya existe en BD
   const hasPlanPersisted = Boolean(value.plan_id);
 
-  // 👇 NUEVO: regla específica para habilitar el select de indicador
+  // regla específica para habilitar el select de indicador
   const canEditIndicador =
     hasIndicadoresApi &&
-    !hasPlanPersisted && // si ya hay plan_id, no se puede cambiar el indicador
-    !usedIndicadoresSet.has((value.indicador || "").trim()) &&
+    !hasPlanPersisted && 
     canEditPlanBlock &&
     !ro["indicador"];
 
@@ -304,10 +308,6 @@ export default function SeguimientoForm({
   
   const showMultiActionsWarning = hasMultipleActions && isDraftEstado;
 
-  const usedIndicadoresSet = React.useMemo(
-    () => new Set((usedIndicadores ?? []).filter(Boolean)),
-    [usedIndicadores]
-  );
 
   // Cerrar tooltip de ayuda si se hace click fuera
   React.useEffect(() => {
