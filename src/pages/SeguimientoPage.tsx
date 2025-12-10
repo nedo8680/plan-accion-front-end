@@ -178,6 +178,7 @@ export default function SeguimientoPage() {
 
       if (isEntidad || isAdmin) {
         const overrides: any = {};
+        let message = "";
 
         if (isDraftPlan) {
           overrides.estado = "Pendiente";
