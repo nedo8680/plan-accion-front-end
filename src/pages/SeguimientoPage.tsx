@@ -99,8 +99,9 @@ export default function SeguimientoPage() {
     isDuplicableCurrent, pagerIndex, setActiveChild,
     createdOrder,
     toggleCreatedOrder,
-    importSeguimientoFields,  
-    createPlanFromAction, 
+    importSeguimientoFields,
+    newPlanFromAction, 
+    //createPlanFromAction, 
     usedIndicadores,
     loadSeguimientosForExport,
     planMissingKeys,
@@ -223,45 +224,14 @@ export default function SeguimientoPage() {
     });
   }
   // Crear uno o varios planes usando la(s) acción(es) de mejora actual(es)
-  const handleNewPlanFromAction = async (accionRaw: string) => {
-    const raw = (accionRaw || "").trim();
-    if (!raw) return;
+  const handleNewPlanFromAction = (accionRaw: string) => {
+  const raw = (accionRaw || "").trim();
+  if (!raw) return;
 
-    // Usamos el mismo criterio que en SeguimientoForm: \n ; , .
-    const partes = raw
-      .split(/[\n;,.]+/)
-      .map((p) => p.trim())
-      .filter(Boolean);
+  // Nuevo plan en borrador con el mismo indicador y nombre de entidad
+  newPlanFromAction(raw);
+};
 
-    if (!partes.length) return;
-
-    const originalPlanId = activePlanId;
-    const curr = current as any;
-    const indicadorBase = curr?.indicador ?? "";
-
-    try {
-      if (originalPlanId && partes.length >= 2) {
-        updateLocal("accion_mejora_planteada" as any, partes[0]);
-      }
-      
-      const accionesParaNuevosPlanes = originalPlanId ? partes.slice(1) : partes;
-
-      for (const acc of accionesParaNuevosPlanes) {
-        await createPlanFromAction(acc, indicadorBase);
-      }
-
-      if (originalPlanId) {
-        await setActive(originalPlanId);
-      }
-
-      requestAnimationFrame(() => {
-        const main = document.querySelector("main");
-        main?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    } catch (e: any) {
-      alert(e?.message ?? "No se pudieron crear los nuevos registros a partir de las acciones.");
-    }
-  };
 
 
   React.useEffect(() => {

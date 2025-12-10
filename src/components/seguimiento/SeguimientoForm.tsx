@@ -110,6 +110,9 @@ export default function SeguimientoForm({
 
   const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
 
+  const isPlanDevuelto = value.aprobado_evaluador === "Rechazado";
+
+
   // Bloque de seguimiento visible si hay plan y ya hay seguimiento creado o el plan no está en borrador
   const isSeguimientoVisible =
    // isSeguimientoBase && (hasSeguimientoActual || !isDraftEstado);
@@ -141,6 +144,15 @@ export default function SeguimientoForm({
   const [eviHelpOpen, setEviHelpOpen] = React.useState(false);
   const eviHelpRef = React.useRef<HTMLDivElement | null>(null);
   const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
+
+  const canShowNewPlanFromActionButton =
+  (isAdmin || isEntidad) &&
+  !!onRequestNewPlanFromAction &&
+  (isDraftEstado || isPlanDevuelto);
+
+  const newPlanButtonText = isPlanDevuelto
+  ? "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador"
+  : "Nueva acción de mejora asociada a este indicador";
 
   // === Indicadores únicos ===
   const uniqueIndicadores = React.useMemo(() => {
@@ -179,6 +191,7 @@ export default function SeguimientoForm({
   const canEditIndicador =
     hasIndicadoresApi &&
     !hasPlanPersisted && // si ya hay plan_id, no se puede cambiar el indicador
+    !usedIndicadoresSet.has((value.indicador || "").trim()) &&
     canEditPlanBlock &&
     !ro["indicador"];
 
@@ -287,7 +300,9 @@ export default function SeguimientoForm({
     return parts.length;
   }, [value.accion_mejora_planteada]);
 
-  const hasMultipleActions = multiActionCount >= 2 && isDraftEstado;
+  const hasMultipleActions = multiActionCount >= 2;
+  
+  const showMultiActionsWarning = hasMultipleActions && isDraftEstado;
 
   const usedIndicadoresSet = React.useMemo(
     () => new Set((usedIndicadores ?? []).filter(Boolean)),
@@ -317,9 +332,7 @@ export default function SeguimientoForm({
     const current = (value.indicador || "").trim();
 
     // Si ya hay un indicador y NO está marcado como usado, lo dejamos tal cual
-    if (current && !usedIndicadoresSet.has(current)) {
-      return;
-    }
+    if (current) return;
 
     // Buscar el primer indicador NO usado
     const nextRow = indicadoresApi.find((row) => {
@@ -330,26 +343,24 @@ export default function SeguimientoForm({
 
     if (!nextRow || !nextRow.indicador) return;
 
-    if (nextRow.indicador === current) return;
+  onChange("indicador", nextRow.indicador);
 
-    onChange("indicador", nextRow.indicador);
-
-    if (nextRow.accion && !value.observacion_informe_calidad) {
-      onChange("observacion_informe_calidad", nextRow.accion);
-    }
-    if (nextRow.entidad && !value.nombre_entidad) {
-      onChange("nombre_entidad", nextRow.entidad);
-    }
-  }, [
-    hasIndicadoresApi,
-    indicadoresApi,
-    usedIndicadoresSet,
-    value.plan_id,
-    value.indicador,
-    value.observacion_informe_calidad,
-    value.nombre_entidad,
-    onChange,
-  ]);
+  if (nextRow.accion && !value.observacion_informe_calidad) {
+    onChange("observacion_informe_calidad", nextRow.accion);
+  }
+  if (nextRow.entidad && !value.nombre_entidad) {
+    onChange("nombre_entidad", nextRow.entidad);
+  }
+}, [
+  hasIndicadoresApi,
+  indicadoresApi,
+  usedIndicadoresSet,
+  value.plan_id,
+  value.indicador,
+  value.observacion_informe_calidad,
+  value.nombre_entidad,
+  onChange,
+]);
 
   return (
     <form className="space-y-3">
@@ -596,14 +607,12 @@ export default function SeguimientoForm({
               aria-invalid={hasPlanError("accion_mejora_planteada")}
             />
 
-            {hasMultipleActions && (
+            {showMultiActionsWarning && (
               <div className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <p className="font-semibold">Hemos detectado más de una posible acción.</p>
-                <p>
-                  Considera registrar cada acción como un plan separado antes de enviar.
-                </p>
-              </div>
-            )}
+                <p>Considera registrar cada acción como un plan separado antes de enviar.</p>
+                </div>
+              )}
 
           </div>
         </div>
@@ -1064,22 +1073,22 @@ export default function SeguimientoForm({
         </fieldset>
       )}
 
-      {canEditPlanBlock &&
-        hasMultipleActions &&
-        onRequestNewPlanFromAction && (
-          <div className="mt-4 flex justify-start">
-            <button
-              type="button"
-              onClick={() =>
-                onRequestNewPlanFromAction(value.accion_mejora_planteada!.trim())
-              }
-              className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
-            >
-              <span className="text-base leading-none">＋</span>
-              <span>Nueva acción de mejora asociada este indicador</span>
-            </button>
-          </div>
-        )}
+{canShowNewPlanFromActionButton && (
+  <div className="mt-4 flex justify-start">
+    <button
+      type="button"
+      onClick={() =>
+        onRequestNewPlanFromAction((value.accion_mejora_planteada || "").trim())
+      }
+      className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+    >
+      <span className="text-base leading-none">＋</span>
+      <span>{newPlanButtonText}</span>
+    </button>
+  </div>
+)}
+
+
 
       {footer && (
         <div className="mt-4 border-t border-gray-200 pt-4">
