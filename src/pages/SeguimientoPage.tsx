@@ -100,8 +100,8 @@ export default function SeguimientoPage() {
     createdOrder,
     toggleCreatedOrder,
     importSeguimientoFields,
-    newPlanFromAction, 
-    //createPlanFromAction, 
+    //newPlanFromAction, 
+    createPlanFromAction, 
     usedIndicadores,
     loadSeguimientosForExport,
     planMissingKeys,
@@ -224,13 +224,25 @@ export default function SeguimientoPage() {
     });
   }
   // Crear uno o varios planes usando la(s) acción(es) de mejora actual(es)
-  const handleNewPlanFromAction = (accionRaw: string) => {
+const handleNewPlanFromAction = async (accionRaw: string) => {
   const raw = (accionRaw || "").trim();
   if (!raw) return;
 
-  // Nuevo plan en borrador con el mismo indicador y nombre de entidad
-  newPlanFromAction(raw);
+  const currentAny = current as any;
+  const indicadorBase = (currentAny?.indicador || "").trim();
+
+  try {
+    await createPlanFromAction(raw, indicadorBase);
+y 
+    alert(
+      "Se creó un nuevo registro de plan de mejoramiento en estado Borrador " +
+      "a partir de esta acción. Puedes editarlo desde la lista de la izquierda."
+    );
+  } catch (e: any) {
+    alert(e?.message ?? "No se pudo crear el nuevo plan a partir de la acción.");
+  }
 };
+
 
 
 
