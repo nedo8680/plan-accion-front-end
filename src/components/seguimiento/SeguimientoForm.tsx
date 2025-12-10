@@ -98,32 +98,38 @@ export default function SeguimientoForm({
   // ===== Reglas de edición a partir de rol y estado =====
   const canEditCamposEntidad = isAdmin || isEntidad;
   const canEditObsCalidad = isAdmin || isAuditor;
-  
+
   const isSeguimientoBase = Boolean(value.plan_id);
+  const estadoPlan = value.estado ?? "Pendiente";
+  const hasSeguimientoActual = Boolean(value.id) || Boolean(value.fecha_reporte);
   const hasSeguimientoPersisted = Boolean(value.id);
 
-  const estadoRaw = (value.estado || "").trim();
-
-  // Si el backend no manda estado, asumimos BORRADOR.
-  const estadoPlan: string =
-    estadoRaw !== ""
-      ? estadoRaw
-      : "Borrador";
-
   const isDraftEstado = estadoPlan === "Borrador";
-
-  const evaluacion = value.aprobado_evaluador || "";
-  const isPlanAprobado = evaluacion === "Aprobado";
-  const isPlanRechazado = evaluacion === "Rechazado";
-
-
+  const isPlanAprobado = value.aprobado_evaluador === "Aprobado";
 
   const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
 
-  const isPlanDevuelto = value.aprobado_evaluador === "Rechazado";
+  
+  const hasPlanPersisted = Boolean(value.plan_id);
 
+  const hasAnySeguimientoPersisted =
+    Boolean(value.id) || Boolean(value.fecha_reporte);
 
-  // Bloque de seguimiento visible si hay plan y ya hay seguimiento creado o el plan no está en borrador
+  const isPlanDevueltoEvaluador = value.aprobado_evaluador === "Rechazado";
+
+  const entidadPuedeNuevaAccion = (isEntidad || isAdmin) && hasPlanPersisted;
+
+  const evaluadorPuedeNuevaAccion =
+    (isAuditor || isAdmin) && isPlanDevueltoEvaluador;
+
+  const shouldShowNewActionButton =
+    !!onRequestNewPlanFromAction &&
+    (entidadPuedeNuevaAccion || evaluadorPuedeNuevaAccion);
+
+  const newActionButtonLabel = entidadPuedeNuevaAccion
+    ? "Nueva acción de mejora asociada a este indicador"
+    : "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador";
+
   const isSeguimientoVisible =
    // isSeguimientoBase && (hasSeguimientoActual || !isDraftEstado);
   isSeguimientoBase &&
@@ -155,26 +161,6 @@ export default function SeguimientoForm({
   const eviHelpRef = React.useRef<HTMLDivElement | null>(null);
   const hasIndicadoresApi = indicadoresApi && indicadoresApi.length > 0;
 
-  const usedIndicadoresSet = React.useMemo(
-  () => new Set((usedIndicadores ?? []).filter(Boolean)),
-  [usedIndicadores]
-);
-
-  const isPlanEvaluadoAprobado = isPlanAprobado;
-  const isPlanEvaluadoRechazado = isPlanRechazado;
-
-  const canShowNewPlanFromActionButton =
-    (isAdmin || isEntidad) &&
-    !!onRequestNewPlanFromAction &&
-    !!value.plan_id &&
-    !isDraftEstado &&
-    !isPlanEvaluadoAprobado;
-
-  const newPlanButtonText = isPlanEvaluadoRechazado
-    ? "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador"
-    : "Nueva acción de mejora asociada a este indicador";
-
-
   // === Indicadores únicos ===
   const uniqueIndicadores = React.useMemo(() => {
     if (!indicadoresApi) return [];
@@ -204,11 +190,23 @@ export default function SeguimientoForm({
     );
   }, [indicadoresApi, value.indicador]);
 
+   React.useEffect(() => {
+    if (!indicadoresApi || !value.indicador) return;
+    if (value.criterio && value.criterio.trim()) return;
 
-  //saber si el plan ya existe en BD
-  const hasPlanPersisted = Boolean(value.plan_id);
+    const rows = indicadoresApi.filter(
+      (r) => (r.indicador ?? "").trim() === (value.indicador ?? "").trim()
+    );
+    if (!rows.length) return;
 
-  // regla específica para habilitar el select de indicador
+    const firstCriterio =
+      rows[0].criterio?.trim() || rows[0].indicador?.trim() || "";
+
+    if (firstCriterio) {
+      onChange("criterio", firstCriterio);
+    }
+  }, [indicadoresApi, value.indicador, value.criterio, onChange]);
+
   const canEditIndicador =
     hasIndicadoresApi &&
     !hasPlanPersisted && 
@@ -257,6 +255,7 @@ export default function SeguimientoForm({
       enlace_entidad: React.createRef<HTMLInputElement>(),
       indicador: React.createRef<HTMLSelectElement | HTMLInputElement>(),
       insumo_mejora: React.createRef<HTMLSelectElement>(),
+      criterio: React.createRef<HTMLSelectElement>(),
       tipo_accion_mejora: React.createRef<HTMLSelectElement>(),
       observacion_informe_calidad: React.createRef<HTMLTextAreaElement>(),
       accion_mejora_planteada: React.createRef<HTMLInputElement>(),
@@ -276,6 +275,7 @@ export default function SeguimientoForm({
       "enlace_entidad",
       "indicador",
       "insumo_mejora",
+      "criterio",    
       "tipo_accion_mejora",
       "observacion_informe_calidad",
       "accion_mejora_planteada",
@@ -320,10 +320,12 @@ export default function SeguimientoForm({
     return parts.length;
   }, [value.accion_mejora_planteada]);
 
-  const hasMultipleActions = multiActionCount >= 2;
-  
-  const showMultiActionsWarning = hasMultipleActions && isDraftEstado;
+  const hasMultipleActions = multiActionCount >= 2 && isDraftEstado;
 
+  const usedIndicadoresSet = React.useMemo(
+    () => new Set((usedIndicadores ?? []).filter(Boolean)),
+    [usedIndicadores]
+  );
 
   // Cerrar tooltip de ayuda si se hace click fuera
   React.useEffect(() => {
@@ -338,45 +340,60 @@ export default function SeguimientoForm({
   }, [eviHelpOpen]);
 
     // Auto-seleccionar el primer indicador disponible (no usado) en nuevos planes
-  React.useEffect(() => {
-    // Si no hay indicadores o no vienen del backend, no hacemos nada
-    if (!hasIndicadoresApi || !indicadoresApi || indicadoresApi.length === 0) return;
+    React.useEffect(() => {
+      if (!hasIndicadoresApi || !indicadoresApi || indicadoresApi.length === 0) return;
 
-    // Si el plan ya existe en BD, no tocamos el indicador (ya está fijado)
-    if (value.plan_id) return;
+      if (value.plan_id) return;
 
-    const current = (value.indicador || "").trim();
+      const currentIndicador = (value.indicador || "").trim();
 
-    // Si ya hay un indicador y NO está marcado como usado, lo dejamos tal cual
-    if (current) return;
+      if (currentIndicador && !usedIndicadoresSet.has(currentIndicador)) {
+        return;
+      }
 
-    // Buscar el primer indicador NO usado
-    const nextRow = indicadoresApi.find((row) => {
-      const val = (row.indicador || "").trim();
-      if (!val) return false;
-      return !usedIndicadoresSet.has(val);
-    });
+      const nextRow = indicadoresApi.find((row) => {
+        const val = (row.indicador || "").trim();
+        if (!val) return false;
+        return !usedIndicadoresSet.has(val);
+      });
 
-    if (!nextRow || !nextRow.indicador) return;
+      if (!nextRow || !nextRow.indicador) return;
 
-  onChange("indicador", nextRow.indicador);
+      const indicadorValue = nextRow.indicador.trim();
+      const rowsForIndicador = indicadoresApi.filter(
+        (r) => (r.indicador ?? "").trim() === indicadorValue
+      );
 
-  if (nextRow.accion && !value.observacion_informe_calidad) {
-    onChange("observacion_informe_calidad", nextRow.accion);
-  }
-  if (nextRow.entidad && !value.nombre_entidad) {
-    onChange("nombre_entidad", nextRow.entidad);
-  }
-}, [
-  hasIndicadoresApi,
-  indicadoresApi,
-  usedIndicadoresSet,
-  value.plan_id,
-  value.indicador,
-  value.observacion_informe_calidad,
-  value.nombre_entidad,
-  onChange,
-]);
+      const criterios = rowsForIndicador.map((r) =>
+        r.criterio?.trim() ? r.criterio.trim() : indicadorValue
+      );
+
+      const firstCriterio = criterios[0] ?? "";
+
+      onChange("indicador", indicadorValue);
+      if (firstCriterio && !value.criterio) {
+        onChange("criterio", firstCriterio);
+      }
+
+      if (nextRow.accion && !value.observacion_informe_calidad) {
+        onChange("observacion_informe_calidad", nextRow.accion);
+      }
+      if (nextRow.entidad && !value.nombre_entidad) {
+        onChange("nombre_entidad", nextRow.entidad);
+      }
+    }, [
+      hasIndicadoresApi,
+      indicadoresApi,
+      usedIndicadoresSet,
+      value.plan_id,
+      value.indicador,
+      value.criterio,
+      value.observacion_informe_calidad,
+      value.nombre_entidad,
+      onChange,
+    ]);
+
+
 
   return (
     <form className="space-y-3">
@@ -623,12 +640,14 @@ export default function SeguimientoForm({
               aria-invalid={hasPlanError("accion_mejora_planteada")}
             />
 
-            {showMultiActionsWarning && (
+            {hasMultipleActions && (
               <div className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <p className="font-semibold">Hemos detectado más de una posible acción.</p>
-                <p>Considera registrar cada acción como un plan separado antes de enviar.</p>
-                </div>
-              )}
+                <p>
+                  Considera registrar cada acción como un plan separado antes de enviar.
+                </p>
+              </div>
+            )}
 
           </div>
         </div>
@@ -1089,22 +1108,22 @@ export default function SeguimientoForm({
         </fieldset>
       )}
 
-{canShowNewPlanFromActionButton && (
-  <div className="mt-4 flex justify-start">
-    <button
-      type="button"
-      onClick={() =>
-        onRequestNewPlanFromAction((value.accion_mejora_planteada || "").trim())
-      }
-      className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
-    >
-      <span className="text-base leading-none">＋</span>
-      <span>{newPlanButtonText}</span>
-    </button>
-  </div>
-)}
-
-
+      {shouldShowNewActionButton && (
+        <div className="mt-4 flex justify-start">
+          <button
+            type="button"
+            onClick={() =>
+              onRequestNewPlanFromAction?.(
+                (value.accion_mejora_planteada ?? "").trim()
+              )
+            }
+            className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800"
+          >
+            <span className="text-base leading-none">＋</span>
+            <span>{newActionButtonLabel}</span>
+          </button>
+        </div>
+      )}
 
       {footer && (
         <div className="mt-4 border-t border-gray-200 pt-4">

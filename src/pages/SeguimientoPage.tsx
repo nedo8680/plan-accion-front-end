@@ -99,8 +99,7 @@ export default function SeguimientoPage() {
     isDuplicableCurrent, pagerIndex, setActiveChild,
     createdOrder,
     toggleCreatedOrder,
-    importSeguimientoFields,
-    //newPlanFromAction, 
+    importSeguimientoFields,  
     createPlanFromAction, 
     usedIndicadores,
     loadSeguimientosForExport,
@@ -128,12 +127,17 @@ export default function SeguimientoPage() {
   const estadoPlanActual: string | null =
     (currentAny?.estado as string) ?? null; 
   
+  const aprobadoEvaluador = (currentAny?.aprobado_evaluador as string) || "";
+  const isPlanDevuelto =
+  aprobadoEvaluador === "Rechazado" || estadoPlanActual === "Plan devuelto para ajustes";
+
+  
   const hasSeguimientoActual =
   Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
 
+
   const isDraftPlan =
-  ((estadoPlanActual === "Borrador") || !estadoPlanActual) &&
-  !hasSeguimientoActual;
+  estadoPlanActual === "Borrador" && !hasSeguimientoActual;
   
   const isPlanAprobado =
   (currentAny?.aprobado_evaluador as string) === "Aprobado"; 
@@ -173,24 +177,19 @@ export default function SeguimientoPage() {
     try {
       setSending(true);
 
-      //const currentAny = current as any;
-      //const isDraftPlan = currentAny?.estado === "Borrador";
+      const currentAny = current as any;
+      const isDraftPlan = currentAny?.estado === "Borrador";
 
       if (isEntidad || isAdmin) {
         const overrides: any = {};
-        let message = "";
 
         if (isDraftPlan) {
           overrides.estado = "Pendiente";
-         message =
-            "Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS";
-        } else {
-          message = "Seguimiento enviado con éxito";
         }
 
         const saved = await saveCurrent(overrides);
         if (!saved) return;
-        alert(message);
+        alert("Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS");
       } else {
         // admin / auditor simplemente guardan cambios
         const saved = await saveCurrent({} as any);
@@ -222,44 +221,51 @@ export default function SeguimientoPage() {
       }
     });
   }
-  // Crear uno o varios planes usando la(s) acción(es) de mejora actual(es)
-const handleNewPlanFromAction = async (accionRaw: string) => {
-  const raw = (accionRaw || "").trim();
-  if (!raw) return;
+  const handleNewPlanFromAction = async (_accionRaw: string) => {
+    const curr = current as any;
 
-  const currentAny = current as any;
-  const indicadorBase = (currentAny?.indicador || "").trim();
+    const indicadorBase = (curr?.indicador || "").trim();
+    const criterioBase  = (curr?.criterio || "").trim();
 
-  if (!indicadorBase) {
-    alert("No hay un indicador asociado al plan actual.");
-    return;
-  }
+    const tienePlan = Boolean(curr?.plan_id);
 
-  try {
-    const nuevoPlan = await createPlanFromAction(raw, indicadorBase);
+    const puedeComoEntidad = (isEntidad || isAdmin) && tienePlan;
 
-    const newId =
-      (nuevoPlan as any)?.id ??
-      (Array.isArray(nuevoPlan) ? (nuevoPlan as any)[0]?.id : undefined);
+    const aprobadoEvaluador = (curr?.aprobado_evaluador as string) || "";
+    const isPlanDevuelto =
+      aprobadoEvaluador === "Rechazado" ||
+      (curr?.estado as string) === "Plan devuelto para ajustes";
 
-    if (newId) {
-      setActive(newId);
+    const puedeComoEvaluador = isAuditor && isPlanDevuelto;
+
+    if (!puedeComoEntidad && !puedeComoEvaluador) {
+      alert(
+        "Solo se puede crear una nueva acción de mejora asociada a este indicador " +
+          "después de enviar el plan o cuando el plan ha sido devuelto para ajustes por el equipo evaluador."
+      );
+      return;
     }
 
-    focusForm();
+    if (!indicadorBase) {
+      alert("Primero diligencia el campo Indicador.");
+      return;
+    }
 
-    alert(
-      "Se creó un nuevo registro de plan de mejoramiento en estado Borrador " +
-        "a partir de esta acción. Ya puedes editarlo directamente en el formulario."
-    );
-  } catch (e: any) {
-    alert(e?.message ?? "No se pudo crear el nuevo plan a partir de la acción.");
-  }
-};
+    try {
+      const nuevoPlan = await createPlanFromAction("", indicadorBase, criterioBase); 
+      await setActive(nuevoPlan.id);
 
-
-
-
+      requestAnimationFrame(() => {
+        const main = document.querySelector("main");
+        main?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } catch (e: any) {
+      alert(
+        e?.message ??
+          "No se pudo crear la nueva acción de mejora asociada a este indicador."
+      );
+    }
+  };
 
   React.useEffect(() => {
     setMobileTab(children.length ? "history" : "form");

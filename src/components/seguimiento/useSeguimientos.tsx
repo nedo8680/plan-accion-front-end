@@ -22,7 +22,7 @@ export type Plan = {
   observacion_calidad?: string | null;
   seguimientos?: Seguimiento[];
   indicador?: string | null;
-
+  criterio?: string | null;
   aprobado_evaluador?: string | null; 
 };
 
@@ -50,6 +50,7 @@ export type Seguimiento = {
 
   entidad?: string | null;
   indicador?: string | null;
+  criterio?: string | null;  
   fecha_reporte?: string | null;
 };
 
@@ -82,6 +83,7 @@ export const emptyForm = (): UnifiedForm => ({
   seguimiento: "Pendiente",
   entidad: "",
   indicador: "",
+  criterio: "",   
   fecha_reporte: "",
   estado: "Borrador",
 
@@ -99,6 +101,8 @@ function buildPlanPayload(base: UnifiedForm) {
     nombre_entidad: base.nombre_entidad?.trim() ?? "",
     enlace_entidad: toNull(base.enlace_entidad),
     insumo_mejora: toNull(base.insumo_mejora),
+    indicador: toNull(base.indicador),
+    criterio: toNull(base.criterio),   
     tipo_accion_mejora: toNull(base.tipo_accion_mejora),
     accion_mejora_planteada: toNull(base.accion_mejora_planteada),
     descripcion_actividades: toNull(base.plan_descripcion_actividades),
@@ -107,6 +111,7 @@ function buildPlanPayload(base: UnifiedForm) {
     fecha_final: toNull(base.fecha_final),
     observacion_calidad: toNull(base.plan_observacion_calidad),
     aprobado_evaluador: toNull((base as any).aprobado_evaluador as any),
+    estado: base.estado ?? "Borrador",
   };
 }
 
@@ -206,37 +211,45 @@ export function useSeguimientos() {
       indicador: prev.indicador,  
     }));
   }
-async function createPlanFromAction(accion: string, indicadorBase: string) {
+async function createPlanFromAction(accion: string, indicadorBase: string, criterioBase?: string) {
   const nombre = form.nombre_entidad?.trim();
   const enlace = form.enlace_entidad ?? "";
+  
 
   if (!nombre) {
     throw new Error("Primero ingresa el nombre de la entidad.");
   }
 
-  const payload = {
+  const payload: any = {
     nombre_entidad: nombre,
-    enlace_entidad: toNull(enlace),     
-    accion_mejora_planteada: accion, 
+    enlace_entidad: toNull(enlace),
+    estado: "Borrador",    
+    indicador: toNull(indicadorBase),    
+    criterio: toNull(criterioBase ?? ""),
   };
+
+  const accionLimpia = (accion || "").trim();
+  if (accionLimpia) {
+    payload.accion_mejora_planteada = accionLimpia;
+  }
 
   const created: Plan = await api("/seguimiento", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
+  // En frontend lo tratamos como plan con indicador + estado Borrador
   const createdWithIndicador: Plan = {
     ...created,
-    indicador: indicadorBase,
-    estado: "Borrador",
+    indicador: created.indicador ?? indicadorBase,
+    criterio: created.criterio ?? criterioBase,
+    estado: created.estado ?? "Borrador",
   };
 
   setPlans((prev) => [createdWithIndicador, ...prev]);
 
   return createdWithIndicador;
 }
-
-
   const sortedPlans = useMemo(() => {
     const arr = [...plans];
     const getTs = (p: Plan): number => {
@@ -274,27 +287,22 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
 
     setActivePlanId(plan.id);
 
-    const isNotApproved = !plan.aprobado_evaluador || plan.aprobado_evaluador !== "Aprobado";
-    const isDraft = !plan.estado || plan.estado === "Borrador" || isNotApproved;
-
-    const segs: Seguimiento[] = isDraft
-      ? []
-      : (plan.seguimientos && plan.seguimientos.length
+    const segs: Seguimiento[] =
+      plan.seguimientos && plan.seguimientos.length
         ? plan.seguimientos
-        : await api(`/seguimiento/${plan.id}/seguimiento`));
+        : await api(`/seguimiento/${plan.id}/seguimiento`);
     
     const safeSegs: Seguimiento[] = segs.length
       ? segs.map((s) => ({
           ...s,
-          entidad: s.entidad ?? plan.nombre_entidad,
+          entidad: s.entidad ?? plan.nombre_entidad,  
           accion_mejora_planteada: s.accion_mejora_planteada ?? plan.accion_mejora_planteada ?? null,
         }))
       : [];
 
     setChildren(safeSegs);
 
-    const first = safeSegs[0];
-
+    const first = segs[0];
     const savedByEntidad =
       !!actorEmailLower &&
       first &&
@@ -304,17 +312,13 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
         .toLowerCase() === actorEmailLower &&
       !!(first.descripcion_actividades || "").trim();
 
-    const safeEstado = isNotApproved ? "Borrador" : (plan.estado || "Borrador");
-
     setForm({
       ...(first ?? emptyForm()),
       // nivel plan
       plan_id: plan.id,
       nombre_entidad: plan.nombre_entidad,
       enlace_entidad: plan.enlace_entidad ?? "",
-      
-      estado: safeEstado,
-      
+      estado: plan.estado,
       plan_descripcion_actividades: plan.descripcion_actividades ?? "",
       plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? "",
       plan_observacion_calidad: plan.observacion_calidad ?? "",
@@ -323,11 +327,11 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
         first?.accion_mejora_planteada ??
         "",
       indicador: first?.indicador ?? (plan as any).indicador ?? "", 
-  
+      criterio: (first as any)?.criterio ?? (plan as any).criterio ?? "",
       aprobado_evaluador:
-        (plan as any).aprobado_evaluador ??
-        (first as any)?.aprobado_evaluador ??
-        "",
+      (plan as any).aprobado_evaluador ??
+      (first as any)?.aprobado_evaluador ??
+      "",
       _saved_by_entidad: savedByEntidad,
     });
   }
@@ -370,6 +374,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     const createdWithIndicador: Plan = {
       ...created,
       indicador: form.indicador ?? (created as any).indicador ?? "",
+      criterio: form.criterio ?? (created as any).criterio ?? "",
       estado: "Borrador",
 
       aprobado_evaluador:
@@ -387,6 +392,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
   const planFieldLabels: Record<string, string> = {
     enlace_entidad: "Enlace de la entidad",
     indicador: "Indicador",
+    criterio: "Criterio",
     tipo_accion_mejora: "Tipo de acción de mejora",
     observacion_informe_calidad: "Acción recomendada",
     accion_mejora_planteada: "Acción de mejora planteada",
@@ -406,6 +412,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
     const missing: string[] = [];
     if (isBlank(base.enlace_entidad)) missing.push("enlace_entidad");
     if (isBlank(base.indicador)) missing.push("indicador");
+    if (isBlank(base.criterio)) missing.push("criterio");
     if (isBlank(base.tipo_accion_mejora)) missing.push("tipo_accion_mejora");
     if (isBlank(base.observacion_informe_calidad)) missing.push("observacion_informe_calidad");
     if (isBlank(base.accion_mejora_planteada)) missing.push("accion_mejora_planteada");
@@ -420,77 +427,30 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
   async function saveCurrent(overrides?: Partial<UnifiedForm>) {
     const base = overrides ? { ...form, ...overrides } : form;
     setPlanMissingKeys([]);
-    
     if (!base.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
-    
     const prevEstado = form.estado ?? "Borrador";
     const shouldValidatePlan = prevEstado === "Borrador" || !form.plan_id;
     const missingPlanFields = collectPlanFieldGaps(base, shouldValidatePlan);
-    
     if (missingPlanFields.length) {
       setPlanMissingKeys(missingPlanFields);
       const labels = missingPlanFields.map((k) => planFieldLabels[k] || k);
       alert(`Todos los campos son requeridos: ${labels.join(", ")} `);
       return null;
     }
-
     const planId = await ensurePlanExists();
 
     const planPayload = buildPlanPayload(base);
-    
-    let currentAprobado = (base as any).aprobado_evaluador;
-
     if (planId && (isAdmin || isAuditor)) {
       try {
         await api(`/seguimiento/${planId}`, {
           method: "PUT",
           body: JSON.stringify(planPayload),
         });
-        
-        if (!currentAprobado) {
-
-           const p = plans.find(x => x.id === planId);
-           currentAprobado = p?.aprobado_evaluador;
-        }
-
       } catch (e) {
         console.error("useSeguimientos: no se pudo actualizar aprobado_evaluador", e);
       }
-    } else {
-        const p = plans.find(x => x.id === planId);
-        currentAprobado = p?.aprobado_evaluador;
     }
-
-
     
-    const isPlanAprobado = currentAprobado === "Aprobado";
-
-    if (!isPlanAprobado) {
-        const nextEstado = (overrides && "estado" in overrides ? overrides.estado : form.estado) ?? null;
-
-        setForm((prev) => ({
-            ...prev,
-            plan_id: planId,
-            estado: nextEstado ?? prev.estado ?? null,
-            aprobado_evaluador: currentAprobado ?? null,
-            plan_observacion_calidad: base.plan_observacion_calidad ?? prev.plan_observacion_calidad ?? null,
-        }));
-
-        setPlans((prev) =>
-            prev.map((p) =>
-              p.id === planId
-                ? {
-                    ...p,
-                    ...planPayload,
-                    estado: nextEstado ?? p.estado ?? null,
-                    aprobado_evaluador: currentAprobado ?? null,
-                  }
-                : p
-            )
-        );
-
-        return { ...base, id: planId } as any; 
-    }
 
     const childPayload: Seguimiento = {
       observacion_informe_calidad: toNull(base.observacion_informe_calidad),
@@ -506,6 +466,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       enlace_entidad: toNull(base.enlace_entidad),
       ...(isAuditor || isAdmin ? { observacion_calidad: toNull(base.observacion_calidad) } : {}),
       indicador: toNull(base.indicador),
+      criterio: toNull(base.criterio), 
     };
 
     const firstChild = children[0];
