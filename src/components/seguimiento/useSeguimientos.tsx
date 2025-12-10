@@ -272,24 +272,42 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       console.warn("useSeguimientos: no se pudo refrescar plan", e);
     }
 
+    async function setActive(idxOrId: number) {
+    setPlanMissingKeys([]);
+    let plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
+    if (!plan) return;
+
+    try {
+      const refreshed: Plan = await api(`/seguimiento/${plan.id}`);
+      plan = { ...plan, ...refreshed };
+      setPlans((prev) => prev.map((p) => (p.id === plan!.id ? plan! : p)));
+    } catch (e) {
+      console.warn("useSeguimientos: no se pudo refrescar plan", e);
+    }
+
     setActivePlanId(plan.id);
 
-    const segs: Seguimiento[] =
-      plan.seguimientos && plan.seguimientos.length
+    const isNotApproved = !plan.aprobado_evaluador || plan.aprobado_evaluador !== "Aprobado";
+    const isDraft = !plan.estado || plan.estado === "Borrador" || isNotApproved;
+
+    const segs: Seguimiento[] = isDraft
+      ? [] 
+      : (plan.seguimientos && plan.seguimientos.length
         ? plan.seguimientos
-        : await api(`/seguimiento/${plan.id}/seguimiento`);
+        : await api(`/seguimiento/${plan.id}/seguimiento`));
     
     const safeSegs: Seguimiento[] = segs.length
       ? segs.map((s) => ({
           ...s,
-          entidad: s.entidad ?? plan.nombre_entidad,   // 👈 AQUÍ
+          entidad: s.entidad ?? plan.nombre_entidad,
           accion_mejora_planteada: s.accion_mejora_planteada ?? plan.accion_mejora_planteada ?? null,
         }))
       : [];
 
     setChildren(safeSegs);
 
-    const first = segs[0];
+    const first = safeSegs[0]; 
+    
     const savedByEntidad =
       !!actorEmailLower &&
       first &&
@@ -299,13 +317,17 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
         .toLowerCase() === actorEmailLower &&
       !!(first.descripcion_actividades || "").trim();
 
+    const safeEstado = isNotApproved ? "Borrador" : (plan.estado || "Borrador");
+
     setForm({
       ...(first ?? emptyForm()),
       // nivel plan
       plan_id: plan.id,
       nombre_entidad: plan.nombre_entidad,
       enlace_entidad: plan.enlace_entidad ?? "",
-      estado: plan.estado,
+      
+      estado: safeEstado,
+      
       plan_descripcion_actividades: plan.descripcion_actividades ?? "",
       plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? "",
       plan_observacion_calidad: plan.observacion_calidad ?? "",
