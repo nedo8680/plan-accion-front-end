@@ -189,7 +189,7 @@ export default function SeguimientoPage() {
 
         const saved = await saveCurrent(overrides);
         if (!saved) return;
-        alert("message");
+        alert(message);
       } else {
         // admin / auditor simplemente guardan cambios
         const saved = await saveCurrent({} as any);
