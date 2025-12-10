@@ -272,26 +272,13 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       console.warn("useSeguimientos: no se pudo refrescar plan", e);
     }
 
-    async function setActive(idxOrId: number) {
-    setPlanMissingKeys([]);
-    let plan = plans.find((p) => p.id === idxOrId) ?? plans[idxOrId];
-    if (!plan) return;
-
-    try {
-      const refreshed: Plan = await api(`/seguimiento/${plan.id}`);
-      plan = { ...plan, ...refreshed };
-      setPlans((prev) => prev.map((p) => (p.id === plan!.id ? plan! : p)));
-    } catch (e) {
-      console.warn("useSeguimientos: no se pudo refrescar plan", e);
-    }
-
     setActivePlanId(plan.id);
 
     const isNotApproved = !plan.aprobado_evaluador || plan.aprobado_evaluador !== "Aprobado";
     const isDraft = !plan.estado || plan.estado === "Borrador" || isNotApproved;
 
     const segs: Seguimiento[] = isDraft
-      ? [] 
+      ? []
       : (plan.seguimientos && plan.seguimientos.length
         ? plan.seguimientos
         : await api(`/seguimiento/${plan.id}/seguimiento`));
@@ -306,8 +293,8 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
 
     setChildren(safeSegs);
 
-    const first = safeSegs[0]; 
-    
+    const first = safeSegs[0];
+
     const savedByEntidad =
       !!actorEmailLower &&
       first &&
@@ -338,9 +325,9 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
       indicador: first?.indicador ?? (plan as any).indicador ?? "", 
   
       aprobado_evaluador:
-      (plan as any).aprobado_evaluador ??
-      (first as any)?.aprobado_evaluador ??
-      "",
+        (plan as any).aprobado_evaluador ??
+        (first as any)?.aprobado_evaluador ??
+        "",
       _saved_by_entidad: savedByEntidad,
     });
   }
