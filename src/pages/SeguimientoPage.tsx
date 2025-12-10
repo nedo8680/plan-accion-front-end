@@ -173,19 +173,23 @@ export default function SeguimientoPage() {
     try {
       setSending(true);
 
-      const currentAny = current as any;
-      const isDraftPlan = currentAny?.estado === "Borrador";
+      //const currentAny = current as any;
+      //const isDraftPlan = currentAny?.estado === "Borrador";
 
       if (isEntidad || isAdmin) {
         const overrides: any = {};
 
         if (isDraftPlan) {
           overrides.estado = "Pendiente";
+         message =
+            "Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS";
+        } else {
+          message = "Seguimiento enviado con éxito";
         }
 
         const saved = await saveCurrent(overrides);
         if (!saved) return;
-        alert("Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS");
+        alert("message");
       } else {
         // admin / auditor simplemente guardan cambios
         const saved = await saveCurrent({} as any);
