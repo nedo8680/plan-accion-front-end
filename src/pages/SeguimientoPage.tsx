@@ -233,7 +233,7 @@ const handleNewPlanFromAction = async (accionRaw: string) => {
 
   try {
     await createPlanFromAction(raw, indicadorBase);
-y 
+
     alert(
       "Se creó un nuevo registro de plan de mejoramiento en estado Borrador " +
       "a partir de esta acción. Puedes editarlo desde la lista de la izquierda."
