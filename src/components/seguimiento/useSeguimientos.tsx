@@ -619,18 +619,14 @@ async function addChildImmediate() {
       prev.enlace_entidad ??
       planActual?.enlace_entidad ??
       "",
-    descripcion_actividades: withEnlace.descripcion_actividades ?? "",
-    evidencia_cumplimiento: withEnlace.evidencia_cumplimiento ?? "",
-    fecha_reporte: withEnlace.fecha_reporte ?? prev.fecha_reporte ?? "",
-    seguimiento: withEnlace.seguimiento ?? "Pendiente",
+      descripcion_actividades: "",
+      evidencia_cumplimiento: "",
+      fecha_reporte: "",
+      seguimiento: withEnlace.seguimiento ?? "Pendiente",
 
-    observacion_calidad:
-      withEnlace.observacion_calidad ?? prev.observacion_calidad ?? "",
+    observacion_calidad: "",
 
-    observacion_informe_calidad:
-      withEnlace.observacion_informe_calidad ??
-      prev.observacion_informe_calidad ??
-      "",
+    observacion_informe_calidad: prev.observacion_informe_calidad ?? "",
 
     indicador: withEnlace.indicador ?? prev.indicador ?? "",
     _saved_by_entidad: false,
@@ -751,7 +747,7 @@ async function removeById(id: number) {
       seguimiento: child.seguimiento ?? "Pendiente",
 
       observacion_calidad:
-        child.observacion_calidad ?? prev.observacion_calidad ?? "",
+        child.observacion_calidad ?? "",
 
       observacion_informe_calidad:
         child.observacion_informe_calidad ??
