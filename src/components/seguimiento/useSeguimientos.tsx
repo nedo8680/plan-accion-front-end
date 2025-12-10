@@ -411,30 +411,93 @@ async function createPlanFromAction(accion: string, indicadorBase: string) {
   async function saveCurrent(overrides?: Partial<UnifiedForm>) {
     const base = overrides ? { ...form, ...overrides } : form;
     setPlanMissingKeys([]);
+    
     if (!base.nombre_entidad?.trim()) throw new Error("Ingresa el nombre de la entidad");
+    
     const prevEstado = form.estado ?? "Borrador";
     const shouldValidatePlan = prevEstado === "Borrador" || !form.plan_id;
     const missingPlanFields = collectPlanFieldGaps(base, shouldValidatePlan);
+    
     if (missingPlanFields.length) {
       setPlanMissingKeys(missingPlanFields);
       const labels = missingPlanFields.map((k) => planFieldLabels[k] || k);
       alert(`Todos los campos son requeridos: ${labels.join(", ")} `);
       return null;
     }
+
+    // 1. Asegurar que el plan existe (o crearlo)
     const planId = await ensurePlanExists();
 
+    // 2. Actualizar datos del Plan
     const planPayload = buildPlanPayload(base);
+    
+    // Guardamos la referencia a lo que acabamos de guardar/tener en memoria
+    let currentAprobado = (base as any).aprobado_evaluador;
+
     if (planId && (isAdmin || isAuditor)) {
       try {
         await api(`/seguimiento/${planId}`, {
           method: "PUT",
           body: JSON.stringify(planPayload),
         });
+        
+        // Si no venía en el override, buscamos el valor actual para saber si aprobó
+        if (!currentAprobado) {
+           // Si no se cambió explícitamente ahora, mantenemos el que tenía el plan
+           const p = plans.find(x => x.id === planId);
+           currentAprobado = p?.aprobado_evaluador;
+        }
+
       } catch (e) {
         console.error("useSeguimientos: no se pudo actualizar aprobado_evaluador", e);
       }
+    } else {
+        // Si soy entidad, el aprobado es lo que ya estaba en base de datos
+        const p = plans.find(x => x.id === planId);
+        currentAprobado = p?.aprobado_evaluador;
     }
+
+    // =====================================================================
+    // <--- CAMBIO IMPORTANTE: DETENER CREACIÓN DE SEGUIMIENTO SI NO ESTÁ APROBADO
+    // =====================================================================
     
+    const isPlanAprobado = currentAprobado === "Aprobado";
+
+    // Si NO está aprobado, actualizamos el estado local del formulario y terminamos aquí.
+    // Esto evita que se ejecute el POST/PUT al endpoint de /seguimiento (hijo).
+    if (!isPlanAprobado) {
+        const nextEstado = (overrides && "estado" in overrides ? overrides.estado : form.estado) ?? null;
+        
+        // Actualizamos estado local (solo datos del plan)
+        setForm((prev) => ({
+            ...prev,
+            plan_id: planId,
+            estado: nextEstado ?? prev.estado ?? null,
+            aprobado_evaluador: currentAprobado ?? null,
+            plan_observacion_calidad: base.plan_observacion_calidad ?? prev.plan_observacion_calidad ?? null,
+            // Mantenemos lo demás igual
+        }));
+
+        // Actualizamos la lista de planes en el sidebar
+        setPlans((prev) =>
+            prev.map((p) =>
+              p.id === planId
+                ? {
+                    ...p,
+                    ...planPayload, // Actualizamos visualmente con lo enviado
+                    estado: nextEstado ?? p.estado ?? null,
+                    aprobado_evaluador: currentAprobado ?? null,
+                  }
+                : p
+            )
+        );
+
+        return null; // Retornamos null o el objeto plan, pero salimos de la función.
+    }
+    // =====================================================================
+    // FIN DEL CAMBIO. Si pasa de aquí, es porque está aprobado y crea/edita el seguimiento.
+    // =====================================================================
+
 
     const childPayload: Seguimiento = {
       observacion_informe_calidad: toNull(base.observacion_informe_calidad),
