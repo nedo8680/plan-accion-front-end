@@ -96,24 +96,23 @@ export default function SeguimientoForm({
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
   // ===== Reglas de edición a partir de rol y estado =====
-  const canEditCamposEntidad = isAdmin || isEntidad;
-  const canEditObsCalidad = isAdmin || isAuditor;
-
-    const isSeguimientoBase = Boolean(value.plan_id);
+   const isSeguimientoBase = Boolean(value.plan_id);
   const hasSeguimientoPersisted = Boolean(value.id);
 
   const estadoRaw = (value.estado || "").trim();
 
+  // Si el backend no manda estado, asumimos BORRADOR.
   const estadoPlan: string =
     estadoRaw !== ""
       ? estadoRaw
-      : isSeguimientoBase
-      ? "Pendiente"
       : "Borrador";
 
   const isDraftEstado = estadoPlan === "Borrador";
 
-  const isPlanAprobado = value.aprobado_evaluador === "Aprobado";
+  const evaluacion = value.aprobado_evaluador || "";
+  const isPlanAprobado = evaluacion === "Aprobado";
+  const isPlanRechazado = evaluacion === "Rechazado";
+
 
 
   const canEditObsCalidadPlan = (isAdmin || isAuditor) && !isDraftEstado;
@@ -158,14 +157,20 @@ export default function SeguimientoForm({
   [usedIndicadores]
 );
 
-  const canShowNewPlanFromActionButton =
-  (isAdmin || isEntidad) &&
-  !!onRequestNewPlanFromAction &&
-  (isDraftEstado || isPlanDevuelto);
+  const isPlanEvaluadoAprobado = isPlanAprobado;
+  const isPlanEvaluadoRechazado = isPlanRechazado;
 
-  const newPlanButtonText = isPlanDevuelto
-  ? "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador"
-  : "Nueva acción de mejora asociada a este indicador";
+  const canShowNewPlanFromActionButton =
+    (isAdmin || isEntidad) &&
+    !!onRequestNewPlanFromAction &&
+    !!value.plan_id &&
+    !isDraftEstado &&
+    !isPlanEvaluadoAprobado;
+
+  const newPlanButtonText = isPlanEvaluadoRechazado
+    ? "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador"
+    : "Nueva acción de mejora asociada a este indicador";
+
 
   // === Indicadores únicos ===
   const uniqueIndicadores = React.useMemo(() => {

@@ -230,17 +230,33 @@ const handleNewPlanFromAction = async (accionRaw: string) => {
   const currentAny = current as any;
   const indicadorBase = (currentAny?.indicador || "").trim();
 
+  if (!indicadorBase) {
+    alert("No hay un indicador asociado al plan actual.");
+    return;
+  }
+
   try {
-    await createPlanFromAction(raw, indicadorBase);
+    const nuevoPlan = await createPlanFromAction(raw, indicadorBase);
+
+    const newId =
+      (nuevoPlan as any)?.id ??
+      (Array.isArray(nuevoPlan) ? (nuevoPlan as any)[0]?.id : undefined);
+
+    if (newId) {
+      setActive(newId);
+    }
+
+    focusForm();
 
     alert(
       "Se creó un nuevo registro de plan de mejoramiento en estado Borrador " +
-      "a partir de esta acción. Puedes editarlo desde la lista de la izquierda."
+        "a partir de esta acción. Ya puedes editarlo directamente en el formulario."
     );
   } catch (e: any) {
     alert(e?.message ?? "No se pudo crear el nuevo plan a partir de la acción.");
   }
 };
+
 
 
 
