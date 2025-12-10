@@ -96,7 +96,10 @@ export default function SeguimientoForm({
   const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
   // ===== Reglas de edición a partir de rol y estado =====
-   const isSeguimientoBase = Boolean(value.plan_id);
+  const canEditCamposEntidad = isAdmin || isEntidad;
+  const canEditObsCalidad = isAdmin || isAuditor;
+  
+  const isSeguimientoBase = Boolean(value.plan_id);
   const hasSeguimientoPersisted = Boolean(value.id);
 
   const estadoRaw = (value.estado || "").trim();
