@@ -172,6 +172,19 @@ export default function SeguimientoPage() {
     [plans, activePlanId]
   );
 
+  // Cálculos para bloquear edición si ya se guardó ===
+  const auditorYaEvaluoPlan = 
+    isAuditor && 
+    (activePlan?.aprobado_evaluador === "Aprobado" || activePlan?.aprobado_evaluador === "Rechazado");
+
+  // Buscamos el seguimiento "real" en la lista (no el del formulario) para ver si ya tiene observación guardada
+  const childOriginal = children.find(c => c.id === activeChildId);
+  
+  const auditorYaEvaluoSeguimiento = 
+    isAuditor && 
+    !!childOriginal?.observacion_calidad && 
+    childOriginal.observacion_calidad.trim().length > 0;
+
   // enviar/guardar
   const [sending, setSending] = React.useState(false);
   async function handleEnviar() {
@@ -378,7 +391,17 @@ export default function SeguimientoPage() {
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}
-                readOnlyFields={{ observacion_calidad: isEntidad }}
+                // (coment MS) readOnlyFields={{ observacion_calidad: isEntidad }}
+              readOnlyFields={{
+                // 1. La entidad NUNCA edita observaciones de calidad.
+                // 2. El auditor NO edita si ya guardó una observación previamente.
+                observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento,
+                
+                // El auditor NO cambia el estado del plan ni su observación si ya lo definió en BD.
+                aprobado_evaluador: auditorYaEvaluoPlan,
+                plan_observacion_calidad: auditorYaEvaluoPlan,
+              }}
+
                 focusRef={formFocusRef}
                 indicadoresApi={indicadoresApi}   
                 onRequestNewPlanFromAction={handleNewPlanFromAction}

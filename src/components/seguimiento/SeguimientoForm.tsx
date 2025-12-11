@@ -762,7 +762,7 @@ export default function SeguimientoForm({
               onChange={(e) =>
                 onChange("aprobado_evaluador", e.target.value as any)
               }
-              disabled={!canEditObsCalidadPlan}
+              disabled={!canEditObsCalidadPlan || !!ro["aprobado_evaluador"]}
               aria-disabled={!canEditObsCalidadPlan}
               >
                 <option value="">-- Selecciona --</option>
@@ -784,13 +784,13 @@ export default function SeguimientoForm({
           <div className="md:col-span-2">
             <textarea
               className={`w-full min-h-24 ${
-                !canEditObsCalidadPlan || !!ro["observacion_calidad"]
+                !canEditObsCalidadPlan || !!ro["plan_observacion_calidad"]
                   ? "bg-gray-50 opacity-60"
                   : ""
               }`}
               value={(value as any).plan_observacion_calidad ?? ""}
               onChange={(e) => onChange("plan_observacion_calidad" as any, e.target.value)}
-              disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
+              disabled={!canEditObsCalidadPlan || !!ro["plan_observacion_calidad"]}
               aria-disabled={!canEditObsCalidadPlan || !!ro["observacion_calidad"]}
             />
             <p className="mt-1 text-xs text-gray-500">
