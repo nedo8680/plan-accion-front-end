@@ -115,14 +115,13 @@ export default function SeguimientoForm({
 
   const entidadPuedeNuevaAccion = (isEntidad || isAdmin) && hasPlanPersisted;
 
-  const evaluadorPuedeNuevaAccion =
-    (isAuditor || isAdmin) && isPlanDevueltoEvaluador;
+  const evaluadorPuedeNuevaAccion = isAdmin && isPlanDevueltoEvaluador;
 
   const shouldShowNewActionButton =
     !!onRequestNewPlanFromAction &&
     (entidadPuedeNuevaAccion || evaluadorPuedeNuevaAccion);
 
-  const newActionButtonLabel = entidadPuedeNuevaAccion
+  const newActionButtonLabel = isPlanDevueltoEvaluador
     ? "Nueva acción de mejora asociada a este indicador"
     : "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador";
 
