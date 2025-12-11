@@ -122,8 +122,8 @@ export default function SeguimientoForm({
     (entidadPuedeNuevaAccion || evaluadorPuedeNuevaAccion);
 
   const newActionButtonLabel = isPlanDevueltoEvaluador
-    ? "Nueva acción de mejora asociada a este indicador"
-    : "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador";
+    ? "Agregar acción de mejora para ajustar según las observaciones del equipo evaluador"
+    : "Nueva acción de mejora asociada a este indicador";
 
   const isSeguimientoVisible =
     isSeguimientoBase && isPlanAprobado;
