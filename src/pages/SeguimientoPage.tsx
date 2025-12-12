@@ -314,8 +314,8 @@ export default function SeguimientoPage() {
               type="button"
               disabled={!canDeletePlan}
               onClick={() => {
-                if (!activePlanId || !isAdmin) return;
-                if (confirm("¿Eliminar esta acción de mejora y sus seguimientos?")) removePlan(activePlanId);
+                if (!canDeletePlan) return;
+                if (confirm("Se eliminará esta acción de mejora")) removePlan(activePlanId);
               }}
             >
               Borrar registro
