@@ -127,6 +127,14 @@ export default function SeguimientoPage() {
   const estadoPlanActual: string | null =
     (currentAny?.estado as string) ?? null; 
   
+   // plan activo (objeto)
+  const activePlan = React.useMemo(
+    () => plans.find(p => p.id === activePlanId) ?? null,
+    [plans, activePlanId]
+  );
+
+  const isPlanEnBorrador = !activePlan?.estado || activePlan?.estado === "Borrador";
+
   const aprobadoEvaluador = (currentAny?.aprobado_evaluador as string) || "";
   const isPlanDevuelto =
   aprobadoEvaluador === "Rechazado" || estadoPlanActual === "Plan devuelto para ajustes";
@@ -159,18 +167,14 @@ export default function SeguimientoPage() {
 
   // permisos
   const canDeleteChild = !!currentSeguimientoId && isAdmin;
-  const canDeletePlan = isAdmin && !!activePlanId;
+  const canDeletePlan = !!activePlanId && 
+    (isAdmin || (isEntidad && isPlanEnBorrador));
 
   const canResetForm = isAdmin || isEntidad;
   const canAddChild =
     (isAdmin || isEntidad) &&
     Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
 
-  // plan activo (objeto)
-  const activePlan = React.useMemo(
-    () => plans.find(p => p.id === activePlanId) ?? null,
-    [plans, activePlanId]
-  );
 
   // Cálculos para bloquear edición si ya se guardó ===
   const auditorYaEvaluoPlan = 
