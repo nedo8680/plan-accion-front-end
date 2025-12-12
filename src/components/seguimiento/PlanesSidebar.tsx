@@ -74,6 +74,9 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
+  // Filtro por resultado de evaluación 
+  const [evaluacionFilter, setEvaluacionFilter] = useState("");
+
   // Años disponibles a partir de las fechas de los planes
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
@@ -87,6 +90,7 @@ export default function PlanesSidebar({
 
   const filtered = useMemo(() => {
     const hasDateFilter = !!year || !!month;
+    const hasEvalFilter = !!evaluacionFilter; 
 
     return plans.filter((p) => {
       // --- Filtro por texto ---
@@ -110,9 +114,22 @@ export default function PlanesSidebar({
         if (month && m !== month) return false;
       }
 
+      // Filtro por Resultado Evaluación
+      if (hasEvalFilter) {
+        const estadoReal = p.aprobado_evaluador || ""; 
+        
+       
+        if (evaluacionFilter === "Sin evaluar") {
+            if (estadoReal !== "") return false;
+        } else {
+            // Filtro por "Aprobado" o "Rechazado"
+            if (estadoReal !== evaluacionFilter) return false;
+        }
+      }
+
       return true;
     });
-  }, [plans, q, year, month]);
+  }, [plans, q, year, month, evaluacionFilter]); 
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -194,6 +211,20 @@ export default function PlanesSidebar({
               {m.label}
             </option>
           ))}
+        </select>
+      </div>
+
+      {/* Filtro de Estado de Evaluación */}
+      <div className="mb-2">
+        <select
+            className="w-full rounded-md border px-2 py-1 text-sm"
+            value={evaluacionFilter}
+            onChange={(e) => setEvaluacionFilter(e.target.value)}
+        >
+            <option value="">-- Estado Evaluación del plan --</option>
+            <option value="Aprobado">Aprobado</option>
+            <option value="Rechazado">Devuelto</option>
+            <option value="Sin evaluar">Sin evaluar</option>
         </select>
       </div>
 
