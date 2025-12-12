@@ -207,7 +207,14 @@ export default function SeguimientoPage() {
 
         const saved = await saveCurrent(overrides);
         if (!saved) return;
-        alert("Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS");
+
+        if (isDraftPlan) {
+        // Mensaje para cuando se envía un plan por primera vez  
+          alert("Acción de mejora enviada con éxito, el reporte de seguimiento lo podrá realizar una vez sea aprobado por la DDCS");
+        } else {
+          // Mensaje para cuando se guarda/envía un Seguimiento normal
+          alert("Seguimiento enviado con éxito.");
+        }
       } else {
         // admin / auditor simplemente guardan cambios
         const saved = await saveCurrent({} as any);
