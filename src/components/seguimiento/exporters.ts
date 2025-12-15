@@ -11,17 +11,16 @@ type ColKey =
   | "nombre_entidad"
   | "enlace_entidad"
   | "estado"
+  | "aprobado_evaluador"
   | "plan_descripcion_actividades"
   | "plan_evidencia_cumplimiento";
 
 type Col = { key: ColKey; title: string };
 
 const COLS: Col[] = [
-  { key: "id",                       title: "ID seguimiento" },
-  { key: "plan_id",                  title: "ID plan" },
-  { key: "estado",                   title: "Estado plan" },
   { key: "nombre_entidad",           title: "Nombre entidad" },
   { key: "enlace_entidad",           title: "Enlace entidad" },
+  { key: "estado",                   title: "Estado plan" },
   { key: "indicador",                title: "Indicador" },
   { key: "criterio",                 title: "Criterio" },
   { key: "tipo_accion_mejora",       title: "Tipo de acción" },
@@ -31,6 +30,7 @@ const COLS: Col[] = [
   { key: "plan_evidencia_cumplimiento",  title: "Evidencia plan (texto)" },
   { key: "fecha_inicio",             title: "F. Inicio plan" },
   { key: "fecha_final",              title: "F. Final plan" },
+  { key: "aprobado_evaluador",       title: "Resultado de la evaluación" },
   { key: "fecha_reporte",            title: "F. reporte seguimiento" },
   { key: "seguimiento",              title: "Estado seguimiento" },
   { key: "descripcion_actividades",  title: "Actividades realizadas" },
@@ -45,11 +45,9 @@ function buildRowsForPlan(plan: Plan | null, items: Seguimiento[]) {
   const source = items.length ? items : [{ plan_id: plan?.id ?? null } as Seguimiento];
 
   return source.map((s) => ({
-    id: s.id ?? "",
-    plan_id: plan?.id ?? s.plan_id ?? "",
-    estado: plan?.estado ?? "",
     nombre_entidad: plan?.nombre_entidad ?? "",
     enlace_entidad: plan?.enlace_entidad ?? "",
+    estado: plan?.estado ?? "",
     indicador: plan?.indicador ?? s.indicador ?? "",
     criterio: plan?.criterio ?? s.criterio ?? "",
     tipo_accion_mejora: plan?.tipo_accion_mejora ?? s.tipo_accion_mejora ?? "",
@@ -59,6 +57,7 @@ function buildRowsForPlan(plan: Plan | null, items: Seguimiento[]) {
     plan_evidencia_cumplimiento: plan?.evidencia_cumplimiento ?? (s as any).plan_evidencia_cumplimiento ?? "",
     fecha_inicio: plan?.fecha_inicio ?? s.fecha_inicio ?? "",
     fecha_final: plan?.fecha_final ?? s.fecha_final ?? "",
+    aprobado_evaluador: plan?.aprobado_evaluador ?? (s as any).aprobado_evaluador ?? "",
     fecha_reporte: s.fecha_reporte ?? "",
     seguimiento: s.seguimiento ?? plan?.seguimiento ?? "",
     descripcion_actividades: s.descripcion_actividades ?? "",
@@ -130,19 +129,21 @@ export async function exportAllSeguimientosXLSX(groups: SeguimientoExportGroup[]
     const base = Math.max(14, c.title.length + 2);
     // dar más ancho a algunas columnas clave
     const widthMap: Record<number, number> = {
-      3: 36,  // Nombre entidad
-      4: 42,  // Enlace entidad
-      5: 28,  // Indicador
-      6: 28,  // Criterio
-      7: 24,  // Tipo acción
-      8: 32,  // Acción recomendada
-      9: 32,  // Acción de mejora
-      10: 42, // Desc actividades plan
-      11: 42, // Evidencia plan
-      16: 38, // Actividades seg
-      17: 32, // Evidencia seg
-      18: 32, // Obs DDCS
-      19: 28, // Actualizado por
+      0: 36,  // Nombre entidad
+      1: 42,  // Enlace entidad
+      2: 24,  // Estado plan
+      3: 28,  // Indicador
+      4: 28,  // Criterio
+      5: 24,  // Tipo acción
+      6: 32,  // Acción recomendada
+      7: 32,  // Acción de mejora
+      8: 42,  // Desc actividades plan
+      9: 42,  // Evidencia plan
+      12: 28, // Resultado evaluación
+      13: 38, // Actividades seg
+      14: 32, // Evidencia seg
+      15: 32, // Obs DDCS
+      16: 28, // Actualizado por
     };
     return { wch: widthMap[idx] ?? base };
   });
@@ -177,28 +178,27 @@ export async function exportAllSeguimientosPDF(groups: SeguimientoExportGroup[])
   const body = rows.map(r => cols.map(c => (r as any)[c.key] ?? ""));
   // Definir anchos estimados por columna para calcular bloques
   const widthMap: Record<number, number> = {
-    0: 50,  // ID seg
-    1: 50,  // ID plan
+    0: 120, // Nombre entidad
+    1: 130, // Enlace entidad
     2: 80,  // Estado plan
-    3: 120, // Nombre entidad
-    4: 130, // Enlace entidad
-    5: 90,  // Indicador
-    6: 90,  // Criterio
-    7: 90,  // Tipo acción
-    8: 130, // Acción recomendada
-    9: 130, // Acción de mejora
-    10: 140, // Desc actividades plan
-    11: 140, // Evidencia plan
-    12: 90,  // F inicio
-    13: 90,  // F final
-    14: 110, // F reporte
-    15: 100, // Estado seguimiento
-    16: 150, // Actividades
-    17: 130, // Evidencia seg
-    18: 110, // Obs DDCS
-    19: 110, // Actualizado por
-    20: 110, // Creado en
-    21: 110, // Actualizado en
+    3: 90,  // Indicador
+    4: 90,  // Criterio
+    5: 90,  // Tipo acción
+    6: 130, // Acción recomendada
+    7: 130, // Acción de mejora
+    8: 140, // Desc actividades plan
+    9: 140, // Evidencia plan
+    10: 90,  // F inicio
+    11: 90,  // F final
+    12: 120, // Resultado eval
+    13: 110, // F reporte
+    14: 100, // Estado seguimiento
+    15: 150, // Actividades
+    16: 130, // Evidencia seg
+    17: 110, // Obs DDCS
+    18: 110, // Actualizado por
+    19: 110, // Creado en
+    20: 110, // Actualizado en
   };
 
   // Dividir columnas en bloques que quepan en el ancho disponible

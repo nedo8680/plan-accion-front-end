@@ -14,12 +14,16 @@ export type Plan = {
   insumo_mejora?: string | null;
   tipo_accion_mejora?: string | null;
   accion_mejora_planteada?: string | null;
+  observacion_informe_calidad?: string | null;
   descripcion_actividades?: string | null;
   evidencia_cumplimiento?: string | null;
   fecha_inicio?: string | null;
   fecha_final?: string | null;
   seguimiento?: string | null;
   observacion_calidad?: string | null;
+  plan_descripcion_actividades?: string | null;
+  plan_evidencia_cumplimiento?: string | null;
+  plan_observacion_calidad?: string | null;
   seguimientos?: Seguimiento[];
   indicador?: string | null;
   criterio?: string | null;
@@ -108,6 +112,7 @@ function buildPlanPayload(base: UnifiedForm) {
     criterio: toNull(base.criterio),   
     tipo_accion_mejora: toNull(base.tipo_accion_mejora),
     accion_mejora_planteada: toNull(base.accion_mejora_planteada),
+    observacion_informe_calidad: toNull(base.observacion_informe_calidad),
     descripcion_actividades: toNull(base.plan_descripcion_actividades),
     evidencia_cumplimiento: toNull(base.plan_evidencia_cumplimiento),
     fecha_inicio: toNull(base.fecha_inicio),
@@ -322,8 +327,13 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
       nombre_entidad: plan.nombre_entidad,
       enlace_entidad: plan.enlace_entidad ?? "",
       estado: plan.estado,
+      fecha_inicio: plan.fecha_inicio ?? "",
+      fecha_final: plan.fecha_final ?? "",
       plan_descripcion_actividades: plan.descripcion_actividades ?? "",
       plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? "",
+      tipo_accion_mejora: plan.tipo_accion_mejora ?? "",
+      insumo_mejora: plan.insumo_mejora ?? "",
+      observacion_informe_calidad: plan.observacion_informe_calidad ?? first?.observacion_informe_calidad ?? "",
       plan_observacion_calidad: plan.observacion_calidad ?? "",
       accion_mejora_planteada:
         plan.accion_mejora_planteada ??
@@ -379,6 +389,8 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
       indicador: form.indicador ?? (created as any).indicador ?? "",
       criterio: form.criterio ?? (created as any).criterio ?? "",
       estado: "Borrador",
+      observacion_informe_calidad:
+        form.observacion_informe_calidad ?? (created as any).observacion_informe_calidad ?? "",
 
       aprobado_evaluador:
       (created as any).aprobado_evaluador ??
@@ -454,7 +466,72 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
         console.error("useSeguimientos: no se pudo actualizar el plan", e);
       }
     }
-  
+    const nextEstado =
+      (overrides && "estado" in overrides ? overrides.estado : form.estado) ?? null;
+
+    // Solo plan: no crear seguimiento automáticamente
+    if (!base.id) {
+      const v = (base.indicador || "").trim();
+      if (v) {
+        setUsedIndicadores((prev) =>
+          prev.includes(v) ? prev : [...prev, v]
+        );
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        plan_id: planId,
+        estado: nextEstado ?? prev.estado ?? null,
+        observacion_informe_calidad:
+          base.observacion_informe_calidad ?? prev.observacion_informe_calidad ?? "",
+        aprobado_evaluador:
+          (base as any).aprobado_evaluador ??
+          prev.aprobado_evaluador ??
+          null,
+        plan_observacion_calidad:
+          base.plan_observacion_calidad ??
+          prev.plan_observacion_calidad ??
+          null,
+      }));
+      setPlanMissingKeys([]);
+
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.id === planId
+            ? {
+                ...p,
+                enlace_entidad: base.enlace_entidad ?? p.enlace_entidad,
+                estado: nextEstado ?? p.estado ?? null,
+                fecha_inicio: base.fecha_inicio ?? p.fecha_inicio ?? null,
+                fecha_final: base.fecha_final ?? p.fecha_final ?? null,
+                tipo_accion_mejora: base.tipo_accion_mejora ?? p.tipo_accion_mejora ?? null,
+                accion_mejora_planteada: base.accion_mejora_planteada ?? p.accion_mejora_planteada ?? null,
+                plan_descripcion_actividades:
+                  base.plan_descripcion_actividades ?? p.plan_descripcion_actividades ?? null,
+                plan_evidencia_cumplimiento:
+                  base.plan_evidencia_cumplimiento ?? p.plan_evidencia_cumplimiento ?? null,
+                indicador: base.indicador ?? p.indicador ?? null,
+                criterio: base.criterio ?? p.criterio ?? null,
+                observacion_informe_calidad:
+                  base.observacion_informe_calidad ?? p.observacion_informe_calidad ?? null,
+
+                aprobado_evaluador:
+                  (base as any).aprobado_evaluador ??
+                  (p as any).aprobado_evaluador ??
+                  null,
+                observacion_calidad:
+                  base.plan_observacion_calidad ??
+                  (p as any).observacion_calidad ??
+                  null,
+              }
+            : p
+        )
+      );
+
+      // Devolvemos un objeto liviano para que los flujos superiores (alertas) continúen
+      return { plan_id: planId } as any;
+    }
+
     const childPayload: Seguimiento = {
       ajuste_de_id: base.ajuste_de_id ?? null,
       observacion_informe_calidad: toNull(base.observacion_informe_calidad),
@@ -473,13 +550,6 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
       criterio: toNull(base.criterio), 
     };
 
-    const firstChild = children[0];
-    const looksEmpty =
-      firstChild &&
-      !firstChild.insumo_mejora &&
-      !firstChild.accion_mejora_planteada &&
-      !firstChild.descripcion_actividades &&
-      !firstChild.indicador;
     const planActionFallback =
       toNull(base.accion_mejora_planteada) ??
       plans.find((p) => p.id === planId)?.accion_mejora_planteada ??
@@ -487,50 +557,20 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
 
     let saved: Seguimiento;
 
-      if (!base.id && firstChild && firstChild.id && looksEmpty) {
-        const updated = await api(`/seguimiento/${planId}/seguimiento/${firstChild.id}`, {
-          method: "PUT",
-          body: JSON.stringify(childPayload),
-        });
-        const withActor: Seguimiento = {
-          ...updated,
-          updated_by_email: actorEmail,
-          entidad: base.entidad ?? base.nombre_entidad ?? null,
-          accion_mejora_planteada:
-            updated.accion_mejora_planteada ?? planActionFallback ?? null,
-        };
-        setChildren((prev) => prev.map((x) => (x.id === firstChild.id ? withActor : x)));
-        saved = withActor;
-      } else if (base.id) {
-        const updated = await api(`/seguimiento/${planId}/seguimiento/${base.id}`, {
-          method: "PUT",
-          body: JSON.stringify(childPayload),
-        });
-        const withActor: Seguimiento = {
-          ...updated,
-          updated_by_email: actorEmail,
-          entidad: base.entidad ?? base.nombre_entidad ?? null,
-          accion_mejora_planteada:
-            updated.accion_mejora_planteada ?? planActionFallback ?? null,
-        };
-        setChildren((prev) => prev.map((x) => (x.id === updated.id ? withActor : x)));
-        saved = withActor;
-      } else {
-        const created = await api(`/seguimiento/${planId}/seguimiento`, {
-          method: "POST",
-          body: JSON.stringify(childPayload),
-        });
-        const withActor: Seguimiento = {
-          ...created,
-          updated_by_email: actorEmail,
-          entidad: base.entidad ?? base.nombre_entidad ?? null,
-          accion_mejora_planteada:
-            created.accion_mejora_planteada ?? planActionFallback ?? null,
-        };
-        setChildren((prev) => [...prev, withActor]);
-        saved = withActor;
-      }
-    
+    const updated = await api(`/seguimiento/${planId}/seguimiento/${base.id}`, {
+      method: "PUT",
+      body: JSON.stringify(childPayload),
+    });
+    const withActor: Seguimiento = {
+      ...updated,
+      updated_by_email: actorEmail,
+      entidad: base.entidad ?? base.nombre_entidad ?? null,
+      accion_mejora_planteada:
+        updated.accion_mejora_planteada ?? planActionFallback ?? null,
+    };
+    setChildren((prev) => prev.map((x) => (x.id === updated.id ? withActor : x)));
+    saved = withActor;
+
     if (childPayload.indicador) {
       const v = (childPayload.indicador || "").trim();
       if (v) {
@@ -539,9 +579,6 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
         );
       }
     }
-
-    const nextEstado =
-      (overrides && "estado" in overrides ? overrides.estado : form.estado) ?? null;
 
     
     setForm((prev) => ({
@@ -552,6 +589,8 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
       nombre_entidad: prev.nombre_entidad,
       enlace_entidad: base.enlace_entidad ?? "",
       estado: nextEstado ?? prev.estado ?? null,
+      fecha_inicio: base.fecha_inicio ?? prev.fecha_inicio ?? "",
+      fecha_final: base.fecha_final ?? prev.fecha_final ?? "",
 
       aprobado_evaluador:
       (base as any).aprobado_evaluador ??
@@ -580,6 +619,18 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
               ...p,
               enlace_entidad: base.enlace_entidad ?? p.enlace_entidad,
               estado: nextEstado ?? p.estado ?? null,
+              fecha_inicio: base.fecha_inicio ?? p.fecha_inicio ?? null,
+              fecha_final: base.fecha_final ?? p.fecha_final ?? null,
+              tipo_accion_mejora: base.tipo_accion_mejora ?? p.tipo_accion_mejora ?? null,
+              accion_mejora_planteada: base.accion_mejora_planteada ?? p.accion_mejora_planteada ?? null,
+              plan_descripcion_actividades:
+                base.plan_descripcion_actividades ?? p.plan_descripcion_actividades ?? null,
+              plan_evidencia_cumplimiento:
+                base.plan_evidencia_cumplimiento ?? p.plan_evidencia_cumplimiento ?? null,
+              indicador: base.indicador ?? p.indicador ?? null,
+              criterio: base.criterio ?? p.criterio ?? null,
+              observacion_informe_calidad:
+                base.observacion_informe_calidad ?? p.observacion_informe_calidad ?? null,
 
               aprobado_evaluador:
               (base as any).aprobado_evaluador ??
@@ -807,7 +858,7 @@ async function removeById(id: number) {
       observacion_informe_calidad:
         (prev.observacion_informe_calidad && prev.observacion_informe_calidad.trim())
           ? prev.observacion_informe_calidad
-          : (data.accion ?? prev.observacion_informe_calidad ?? "")
+          : (prev.observacion_informe_calidad ?? "")
     }));
   }
 
@@ -844,6 +895,7 @@ async function removeById(id: number) {
         entidad: s.entidad ?? plan.nombre_entidad,
         accion_mejora_planteada:
           s.accion_mejora_planteada ?? plan.accion_mejora_planteada ?? null,
+        aprobado_evaluador: (plan as any).aprobado_evaluador ?? (s as any).aprobado_evaluador ?? null,
       }));
       results.push({ plan, seguimientos: normalized });
     }

@@ -89,7 +89,6 @@ export default function SeguimientoForm({
 
   const MAX_DESC_ACTIVIDADES = 300;
   const MAX_PLAN_EVIDENCIA = 300;
-  const MAX_OBS_DDCS = 500;
   const MAX_OBS_DDCS_SEG = 500;
 
   const MAX_UPLOAD_MB = 5;
@@ -186,60 +185,11 @@ export default function SeguimientoForm({
     );
   }, [indicadoresApi, value.indicador]);
 
-   React.useEffect(() => {
-    if (!indicadoresApi || !value.indicador) return;
-    if (value.criterio && value.criterio.trim()) return;
-
-    const rows = indicadoresApi.filter(
-      (r) => (r.indicador ?? "").trim() === (value.indicador ?? "").trim()
-    );
-    if (!rows.length) return;
-
-    const firstCriterio =
-      rows[0].criterio?.trim() || rows[0].indicador?.trim() || "";
-
-    if (firstCriterio) {
-      onChange("criterio", firstCriterio);
-    }
-  }, [indicadoresApi, value.indicador, value.criterio, onChange]);
-
   const canEditIndicador =
     hasIndicadoresApi &&
     !hasPlanPersisted && 
     canEditPlanBlock &&
     !ro["indicador"];
-
-  const handleIndicadorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const indicadorValue = e.target.value.trim();
-
-    // Actualiza indicador
-    onChange("indicador", indicadorValue);
-
-    // Filtrar criterios de este indicador
-    const criterios = indicadoresApi
-      ?.filter((r) => (r.indicador ?? "").trim() === indicadorValue)
-      .map((r) => (r.criterio?.trim() ? r.criterio.trim() : indicadorValue)) ?? [];
-
-    const firstCriterio = criterios[0] ?? "";
-
-    // Set criterio auto
-    onChange("criterio", firstCriterio);
-
-    // Buscar acción del primer criterio
-    const row = indicadoresApi?.find((r) => {
-      const crit = r.criterio?.trim() || r.indicador?.trim();
-      return (r.indicador ?? "").trim() === indicadorValue && crit === firstCriterio;
-    });
-
-    if (row?.accion) {
-      onChange("observacion_informe_calidad", row.accion);
-    }
-
-    // Opcional: actualizar nombre de entidad
-    if (row?.entidad) {
-      onChange("nombre_entidad", row.entidad);
-    }
-  };
 
   const todayStr = React.useMemo(
     () => new Date().toISOString().slice(0, 10),
@@ -356,25 +306,11 @@ export default function SeguimientoForm({
       if (!nextRow || !nextRow.indicador) return;
 
       const indicadorValue = nextRow.indicador.trim();
-      const rowsForIndicador = indicadoresApi.filter(
-        (r) => (r.indicador ?? "").trim() === indicadorValue
-      );
-
-      const criterios = rowsForIndicador.map((r) =>
-        r.criterio?.trim() ? r.criterio.trim() : indicadorValue
-      );
-
-      const firstCriterio = criterios[0] ?? "";
 
       onChange("indicador", indicadorValue);
-      if (firstCriterio && !value.criterio) {
-        onChange("criterio", firstCriterio);
-      }
-
-      if (nextRow.accion && !value.observacion_informe_calidad) {
-        onChange("observacion_informe_calidad", nextRow.accion);
-      }
-      if (nextRow.entidad && !value.nombre_entidad) {
+      onChange("criterio", "");
+      onChange("observacion_informe_calidad", "");
+      if (!isEntidad && nextRow.entidad && !value.nombre_entidad) {
         onChange("nombre_entidad", nextRow.entidad);
       }
     }, [
@@ -386,6 +322,7 @@ export default function SeguimientoForm({
       value.criterio,
       value.observacion_informe_calidad,
       value.nombre_entidad,
+      isEntidad,
       onChange,
     ]);
 
@@ -466,37 +403,10 @@ export default function SeguimientoForm({
               onChange={(e) => {
                 const indicadorValue = e.target.value.trim();
 
-                // 1) Actualizar indicador
+                // Actualizar indicador y limpiar campos dependientes
                 onChange("indicador", indicadorValue);
-
-                // 2) Cargar criterios de este indicador
-                const rows = indicadoresApi?.filter(
-                  (r) => (r.indicador ?? "").trim() === indicadorValue
-                ) ?? [];
-
-                const criterios = rows.map((r) =>
-                  r.criterio?.trim() ? r.criterio.trim() : indicadorValue
-                );
-
-                const firstCriterio = criterios[0] ?? "";
-
-                // 3) Set automatic de criterio
-                onChange("criterio", firstCriterio);
-
-                // 4) Set automatic de acción según indicador + criterio
-                const row = rows.find((r) => {
-                  const crit = r.criterio?.trim() || r.indicador?.trim();
-                  return crit === firstCriterio;
-                });
-
-                if (row?.accion) {
-                  onChange("observacion_informe_calidad", row.accion);
-                }
-
-                // 5) Actualizar entidad si corresponde
-                if (row?.entidad) {
-                  onChange("nombre_entidad", row.entidad);
-                }
+                onChange("criterio", "");
+                onChange("observacion_informe_calidad", "");
               }}
               disabled={!canEditIndicador}
               aria-disabled={!canEditIndicador}
@@ -562,6 +472,7 @@ export default function SeguimientoForm({
               disabled={!canEditPlanBlock}
               required={canEditPlanBlock}
             >
+              <option value="">-- Selecciona --</option>
               {criteriosForIndicador.map((c, i) => (
                 <option key={i} value={c}>
                   {c}
