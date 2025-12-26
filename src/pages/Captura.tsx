@@ -2,6 +2,7 @@ import React from "react";
 import Header from "../components/Header";
 import PageBg from "../components/PageBackground";
 import { useAuth } from "../context/AuthContext";
+import { hasAuditorAccess } from "../lib/auth";
 import { FiChevronDown } from "react-icons/fi";
 import SkillLoader from "../components/SkillLoader"; // <-- añadido
 
@@ -587,7 +588,7 @@ export default function Captura() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEntidad = user?.role === "entidad";
-  const isAuditor = user?.role === "auditor";
+  const isAuditor = hasAuditorAccess(user as any);
   const perm = (user as any)?.entidad_perm as "captura_reportes" | "reportes_seguimiento" | null | undefined;
 
   const allowedLabels = new Set<string>([

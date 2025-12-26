@@ -41,12 +41,14 @@ function _emit(next: ApiConnState, msg?: string) {
 // ====== ADMIN: USERS API ======
 export const UsersAPI = {
   list: () => api(`/users`),
-  create: (payload: { email: string; password: string; role: UserRole; entidad_perm?: EntidadPerm, entidad: string;  }) =>
+  create: (payload: { email: string; password: string; role: UserRole; entidad_perm?: EntidadPerm; entidad_auditor?: boolean; entidad: string;  }) =>
     api(`/users`, { method: "POST", body: JSON.stringify(payload) }),
   setRole: (id: number, role: UserRole) =>
     api(`/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
   setPerm: (id: number, entidad_perm: EntidadPerm) =>
     api(`/users/${id}/perm`, { method: "PATCH", body: JSON.stringify({ entidad_perm }) }),
+  setEntidadAuditor: (id: number, entidad_auditor: boolean) =>
+    api(`/users/${id}/auditor`, { method: "PATCH", body: JSON.stringify({ entidad_auditor }) }),
   resetPassword: (id: number, new_password: string) =>
     api(`/users/${id}/password`, { method: "PATCH", body: JSON.stringify({ new_password }) }),  
   remove: (id: number) =>

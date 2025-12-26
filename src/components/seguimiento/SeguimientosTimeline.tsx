@@ -2,6 +2,7 @@ import React from "react";
 import type { Seguimiento } from "./useSeguimientos";
 import { FiUser } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
+import { hasAuditorAccess } from "../../lib/auth";
 
 type Props = {
   items: Seguimiento[];
@@ -122,7 +123,7 @@ const MONTHS = [
 export default function SeguimientosTimeline({ items, activeId, onSelect }: Props) {
   const { user } = useAuth();
   const role = user?.role;
-  const isAuditor = role === "auditor";
+  const isAuditor = hasAuditorAccess(user as any);
 
   // ---------- Filtros de fecha ----------
   const [year, setYear] = React.useState<string>("");

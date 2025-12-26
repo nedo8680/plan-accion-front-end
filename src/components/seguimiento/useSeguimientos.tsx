@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
+import { hasAuditorAccess } from "../../lib/auth";
 
 export type Plan = {
   id: number;
@@ -127,7 +128,7 @@ export function useSeguimientos() {
   const { user } = useAuth();
   const role = user?.role;
   const isEntidad = role === "entidad";
-  const isAuditor = role === "auditor";
+  const isAuditor = hasAuditorAccess(user as any);
   const isAdmin = role === "admin";
 
   const actorEmail = useMemo(() => {

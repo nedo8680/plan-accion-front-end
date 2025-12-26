@@ -7,7 +7,7 @@ import Header from "../components/Header";
 import { FiEye, FiEyeOff, FiKey, FiTrash2 } from "react-icons/fi";
 
 type EntPerm = "captura_reportes" | "reportes_seguimiento";
-type Row = { id: number; email: string; role: UserRole; entidad_perm?: EntPerm | null; entidad?: string | null };
+type Row = { id: number; email: string; role: UserRole; entidad_perm?: EntPerm | null; entidad_auditor?: boolean | null; entidad?: string | null };
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -35,6 +35,7 @@ export default function AdminUsers() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [role, setRole] = React.useState<UserRole>("entidad");
   const [entPerm, setEntPerm] = React.useState<EntPerm>("captura_reportes");
+  const [entidadAuditor, setEntidadAuditor] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [entidad, setEntidad] = React.useState("");
 
@@ -134,7 +135,10 @@ export default function AdminUsers() {
 
   // Si cambia a rol distinto de entidad, limpiar la entidad para que el campo quede libre
   React.useEffect(() => {
-    if (role !== "entidad") setEntidad("");
+    if (role !== "entidad") {
+      setEntidad("");
+      setEntidadAuditor(false);
+    }
   }, [role]);
 
   // Guard: solo admin
@@ -172,12 +176,13 @@ export default function AdminUsers() {
         password,
         role,
         entidad: entidad.trim(),
-        ...(role === "entidad" ? { entidad_perm: entPerm } : {}),
+        ...(role === "entidad" ? { entidad_perm: entPerm, entidad_auditor: entidadAuditor } : {}),
       });
       setEmail("");
       setPassword("");
       setRole("entidad");
       setEntPerm("captura_reportes");
+      setEntidadAuditor(false);
       await fetchData();
       toastOk("Usuario creado");
     } catch (e: any) {
@@ -203,6 +208,7 @@ export default function AdminUsers() {
                 role: nextRole,
                 entidad_perm:
                   nextRole === "entidad" ? (r.entidad_perm ?? "captura_reportes") : null,
+                entidad_auditor: nextRole === "entidad" ? (r.entidad_auditor ?? false) : false,
               }
             : r
         )
@@ -232,6 +238,16 @@ export default function AdminUsers() {
       toastOk("Permisos de entidad actualizados");
     } catch (e: any) {
       toastError(String(e?.message || "No se pudo actualizar el permiso."));
+    }
+  }
+
+  async function changeEntidadAuditor(id: number, nextValue: boolean) {
+    try {
+      await UsersAPI.setEntidadAuditor(id, nextValue);
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, entidad_auditor: nextValue } : r)));
+      toastOk("Permisos de evaluador actualizados");
+    } catch (e: any) {
+      toastError(String(e?.message || "No se pudo actualizar el permiso de evaluador."));
     }
   }
 
@@ -310,6 +326,27 @@ export default function AdminUsers() {
       <option value="captura_reportes">Captura + Reportes </option>
       <option value="reportes_seguimiento">Captura + Reportes + Seguimiento</option>
     </select>
+  );
+
+  const EntidadAuditorToggle = ({
+    checked,
+    onChange,
+    disabled,
+  }: {
+    checked: boolean;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
+  }) => (
+    <label className="inline-flex items-center gap-2 text-xs text-gray-700">
+      <input
+        type="checkbox"
+        className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-300"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+      />
+      Permisos de evaluador
+    </label>
   );
 
   return (
@@ -429,6 +466,12 @@ export default function AdminUsers() {
                   Permisos (entidad)
                 </label>
                 <EntPermSelect value={entPerm} onChange={setEntPerm} />
+                <div className="mt-2">
+                  <EntidadAuditorToggle
+                    checked={entidadAuditor}
+                    onChange={setEntidadAuditor}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -498,10 +541,16 @@ export default function AdminUsers() {
                       {/* Permisos entidad */}
                       <td className="px-4 py-2 hidden sm:table-cell">
                         {r.role === "entidad" ? (
-                          <EntPermSelect
-                            value={r.entidad_perm ?? "captura_reportes"}
-                            onChange={(perm) => changeEntPerm(r.id, perm)}
-                          />
+                          <div className="flex flex-col gap-2">
+                            <EntPermSelect
+                              value={r.entidad_perm ?? "captura_reportes"}
+                              onChange={(perm) => changeEntPerm(r.id, perm)}
+                            />
+                            <EntidadAuditorToggle
+                              checked={Boolean(r.entidad_auditor)}
+                              onChange={(nextValue) => changeEntidadAuditor(r.id, nextValue)}
+                            />
+                          </div>
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
@@ -605,6 +654,12 @@ export default function AdminUsers() {
                                 value={r.entidad_perm ?? "captura_reportes"}
                                 onChange={(perm) => changeEntPerm(r.id, perm)}
                               />
+                              <div className="mt-2">
+                                <EntidadAuditorToggle
+                                  checked={Boolean(r.entidad_auditor)}
+                                  onChange={(nextValue) => changeEntidadAuditor(r.id, nextValue)}
+                                />
+                              </div>
                             </div>
                           ) : (
                             <div className="flex-1 text-right text-gray-400 text-xs">—</div>

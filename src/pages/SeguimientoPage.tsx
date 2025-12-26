@@ -6,6 +6,7 @@ import SeguimientoForm from "../components/seguimiento/SeguimientoForm";
 import { useSeguimientos, type Plan, type Seguimiento } from "../components/seguimiento/useSeguimientos";
 import { useAuth } from "../context/AuthContext";
 import { FiSend } from "react-icons/fi";
+import { hasAuditorAccess } from "../lib/auth";
 
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
 import PlanesSidebar from "../components/seguimiento/PlanesSidebar";
@@ -117,7 +118,8 @@ export default function SeguimientoPage() {
   const { user } = useAuth();
   const role = user?.role;
   const isEntidad = role === "entidad";
-  const isAuditor = role === "auditor";
+  const canAudit = hasAuditorAccess(user as any);
+  const isAuditorRole = role === "auditor";
   const isAdmin   = role === "admin";
 
   const currentAny = current as any;
@@ -178,14 +180,14 @@ export default function SeguimientoPage() {
 
   // Cálculos para bloquear edición si ya se guardó ===
   const auditorYaEvaluoPlan = 
-    isAuditor && 
+    canAudit && 
     (activePlan?.aprobado_evaluador === "Aprobado" || activePlan?.aprobado_evaluador === "Rechazado");
 
   // Buscamos el seguimiento "real" en la lista (no el del formulario) para ver si ya tiene observación guardada
   const childOriginal = children.find(c => c.id === activeChildId);
   
   const auditorYaEvaluoSeguimiento = 
-    isAuditor && 
+    canAudit && 
     !!childOriginal?.observacion_calidad && 
     childOriginal.observacion_calidad.trim().length > 0;
 
@@ -261,7 +263,7 @@ export default function SeguimientoPage() {
       aprobadoEvaluador === "Rechazado" ||
       (curr?.estado as string) === "Plan devuelto para ajustes";
 
-    const puedeComoEvaluador = isAuditor && isPlanDevuelto;
+    const puedeComoEvaluador = canAudit && isPlanDevuelto;
 
     if (!puedeComoEntidad && !puedeComoEvaluador) {
       alert(
@@ -306,10 +308,10 @@ export default function SeguimientoPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800  ${
-                !isAuditor ? "bg-white hover:bg-gray-100" : "bg-gray-400 text-white cursor-not-allowed"
+                !isAuditorRole ? "bg-white hover:bg-gray-100" : "bg-gray-400 text-white cursor-not-allowed"
               }`}
               onClick={() => startNew()}
-              disabled={isAuditor}
+              disabled={isAuditorRole}
             >
               Nuevo registro
             </button>
@@ -450,7 +452,7 @@ export default function SeguimientoPage() {
                   ) : null
                 }
                 planActions={
-                  !isAuditor && isSeguimientoVisible ? (
+                  !isAuditorRole && isSeguimientoVisible ? (
                     <div className="flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
@@ -514,12 +516,12 @@ export default function SeguimientoPage() {
                 }
               />
 
-              {isAuditor && (
+              {canAudit && (
                 <p className="mt-2 text-xs text-gray-500">
                   Como auditor puedes editar la observación de calidad y guardar.
                 </p>
               )}
-              {isEntidad && (
+              {!canAudit && isEntidad && (
                 <p className="mt-2 text-xs text-gray-500">
                   Como entidad no puedes editar “Observación del informe de calidad”.
                 </p>

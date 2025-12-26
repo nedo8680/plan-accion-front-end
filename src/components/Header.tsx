@@ -2,6 +2,7 @@ import React from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { FiSettings, FiMenu, FiX } from "react-icons/fi";
+import { hasAuditorAccess } from "../lib/auth";
 
 export default function Header() {
   const [open, setOpen] = React.useState(false);
@@ -18,7 +19,7 @@ export default function Header() {
 
   const isAdmin = user?.role === "admin";
   const isEntidad = user?.role === "entidad";
-  const isAuditor = user?.role === "auditor";
+  const isAuditor = hasAuditorAccess(user as any);
 
   const entidadPerm = (user as any)?.entidad_perm as ("captura_reportes" | "reportes_seguimiento" | null | undefined);
   // sin fallback: si es null/undefined, NO mostramos Captura ni Seguimiento por ser indeterminado
@@ -27,6 +28,12 @@ export default function Header() {
   const entidadRepSegCaptura = isEntidad && entidadPerm === "reportes_seguimiento"; // puede ver captura con restricción
 
   const displayRole = user?.role as string | undefined;
+  const displayRoleLabel =
+    displayRole === "auditor"
+      ? "Evaluador"
+      : displayRole === "entidad" && (user as any)?.entidad_auditor
+      ? "Entidad / Evaluador"
+      : displayRole;
   const displayEntidad= (user as any)?.entidad as string | undefined;
   return (
     <header className="sticky top-0 z-50 isolate w-full bg-[#D32D37] shadow-md text-base">
@@ -69,7 +76,7 @@ export default function Header() {
             {user && (
               <>
                 <span className="hidden sm:inline text-sm max-w-[220px] truncate">
-                  {displayEntidad} ({ displayRole === "auditor" ? "Evaluador" : displayRole})
+                  {displayEntidad} ({displayRoleLabel})
                 </span>
 
                 {/* Gestión de usuarios (solo admin) */}
@@ -116,7 +123,7 @@ export default function Header() {
             <div className="flex items-center justify-between px-3 py-3 text-white border-b border-white/10">
               <div>
                 <div className="text-sm font-medium">{displayEntidad || "Entidad"}</div>
-                <div className="text-xs opacity-80">{displayRole === "auditor" ? "Evaluador" : displayRole }</div>
+                <div className="text-xs opacity-80">{displayRoleLabel}</div>
               </div>
               {isAdmin && (
                 <Link

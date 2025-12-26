@@ -2,6 +2,7 @@ import React from "react";
 import { FiInfo } from "react-icons/fi";
 
 import { useAuth } from "../../context/AuthContext";
+import { hasAuditorAccess } from "../../lib/auth";
 import { uploadEvidence } from "../../lib/api";
 
 type TipoAccion = "Preventiva" | "Correctiva" | "";
@@ -81,7 +82,7 @@ export default function SeguimientoForm({
   const role = user?.role;
   const isAdmin = role === "admin";
   const isEntidad = role === "entidad";
-  const isAuditor = role === "auditor";
+  const isAuditor = hasAuditorAccess(user as any);
 
   const anyUser = user as any;
   const entidadFromUser = (anyUser?.entidad || "").trim();
