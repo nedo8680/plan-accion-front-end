@@ -5,7 +5,7 @@ import { FaEraser } from "react-icons/fa";
 import SeguimientoForm from "../components/seguimiento/SeguimientoForm";
 import { useSeguimientos, type Plan, type Seguimiento } from "../components/seguimiento/useSeguimientos";
 import { useAuth } from "../context/AuthContext";
-import { FiSend } from "react-icons/fi";
+import { FiSend, FiAlertCircle } from "react-icons/fi"; 
 import { hasAuditorAccess } from "../lib/auth";
 
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
@@ -157,14 +157,27 @@ export default function SeguimientoPage() {
   const isSeguimientoVisible =
     Boolean(currentAny?.plan_id) && isPlanAprobado;
 
+  // <--- LÓGICA DE BLOQUEO GLOBAL --->
+  // Verificar si ALGUNO de los seguimientos ya está finalizado
+  const existeSeguimientoFinalizado = React.useMemo(() => {
+    return children.some(child => child.seguimiento === "Finalizado");
+  }, [children]);
+
+  // Si hay uno finalizado y NO soy admin, bloqueo todo el plan
+  const bloqueoGlobalPorFinalizado = existeSeguimientoFinalizado && !isAdmin;
 
   // Regla: la entidad NO puede reenviar/modificar seguimientos que ya no están en "Pendiente"
+  // O si existe el bloqueo global
   const entidadNoPuedeEnviar =
-    isEntidad && isSeguimientoActual && estadoSeguimientoActual !== "Pendiente";
+    (isEntidad && isSeguimientoActual && estadoSeguimientoActual !== "Pendiente") ||
+    bloqueoGlobalPorFinalizado;
 
   const activeChild = children[pagerIndex] ?? null;
   const activeChildId = activeChild?.id;
+  
+  // No puede ajustar si está bloqueado globalmente
   const puedeAjustarSeguimiento =
+    !bloqueoGlobalPorFinalizado &&
     isEntidad && !!activeChildId && !!(activeChild?.observacion_calidad || "").trim();
 
   // permisos
@@ -173,7 +186,10 @@ export default function SeguimientoPage() {
     (isAdmin || (isEntidad && isPlanEnBorrador));
 
   const canResetForm = isAdmin || isEntidad;
+  
+  // No puede añadir si está bloqueado globalmente
   const canAddChild =
+    !bloqueoGlobalPorFinalizado &&
     (isAdmin || isEntidad) &&
     Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
 
@@ -378,6 +394,28 @@ export default function SeguimientoPage() {
               </button>
             </div>
 
+            {/* <--- MENSAJE DE ADVERTENCIA ---> */}
+            {bloqueoGlobalPorFinalizado && (
+              <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <FiAlertCircle className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">
+                      Acción de mejora finalizada
+                    </h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>
+                        Ya existe un seguimiento marcado como <strong>Finalizado</strong>. 
+                        La acción de mejora se considera cerrada y no se pueden editar ni agregar más seguimientos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Formulario */}
             <section className={`card ${mobileTab === "form" ? "block" : "hidden lg:block"}`}>
               <div className="mb-3 flex items-center justify-between">
@@ -404,16 +442,24 @@ export default function SeguimientoPage() {
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}
-                // (coment MS) readOnlyFields={{ observacion_calidad: isEntidad }}
-              readOnlyFields={{
-                // 1. La entidad NUNCA edita observaciones de calidad.
-                // 2. El auditor NO edita si ya guardó una observación previamente.
-                observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento,
                 
-                // El auditor NO cambia el estado del plan ni su observación si ya lo definió en BD.
-                aprobado_evaluador: auditorYaEvaluoPlan,
-                plan_observacion_calidad: auditorYaEvaluoPlan,
-              }}
+                // <--- BLOQUEO A LOS CAMPOS --->
+                readOnlyFields={{
+                  // 1. La entidad NUNCA edita observaciones de calidad.
+                  // 2. El auditor NO edita si ya guardó una observación previamente.
+                  // 3. BLOQUEO GLOBAL si hay finalizado
+                  observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado,
+                  
+                  // El auditor NO cambia el estado del plan ni su observación si ya lo definió en BD.
+                  aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
+                  plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
+
+                  // Bloquear edición del seguimiento actual si hay bloqueo global
+                  descripcion_actividades: bloqueoGlobalPorFinalizado,
+                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado,
+                  fecha_reporte: bloqueoGlobalPorFinalizado,
+                  seguimiento: bloqueoGlobalPorFinalizado,
+                }}
 
                 focusRef={formFocusRef}
                 indicadoresApi={indicadoresApi}   
@@ -431,6 +477,9 @@ export default function SeguimientoPage() {
                         focusForm();
                       }}
                       onAdd={async () => {
+                        // <--- 5. Bloqueo al intentar agregar
+                        if (bloqueoGlobalPorFinalizado) return;
+
                         const parentId = puedeAjustarSeguimiento ? activeChildId : undefined;
                         try {
                           await addChildImmediate(parentId);
@@ -446,7 +495,8 @@ export default function SeguimientoPage() {
                         }
                       }}
 
-                      canAdd={canAddChild}
+                      // Bloquear visualmente el botón ADD
+                      canAdd={canAddChild} 
                       canDelete={canDeleteChild}
                     />
                   ) : null
@@ -465,6 +515,7 @@ export default function SeguimientoPage() {
                             alert(e?.message ?? "No se pudo crear el seguimiento.");
                           }
                         }}
+                        // Bloquear botón inferior de agregar
                         disabled={!canAddChild}
                         className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${
                           canAddChild
@@ -502,11 +553,12 @@ export default function SeguimientoPage() {
                     <button
                       type="button"
                       onClick={handleEnviar}
+                      // Deshabilitar envío si hay bloqueo global
                       disabled={!isDuplicableCurrent || sending || entidadNoPuedeEnviar}
                       className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
                       title={
                         entidadNoPuedeEnviar
-                          ? "La entidad no puede modificar un seguimiento ya enviado. Cree un nuevo seguimiento."
+                          ? "La entidad no puede modificar un seguimiento ya enviado o finalizado."
                           : "Guardar y enviar"
                       }
                     >
