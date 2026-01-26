@@ -77,6 +77,9 @@ export default function PlanesSidebar({
   // Filtro por resultado de evaluación 
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
+  // Estado para el checkbox
+  const [showFinalized, setShowFinalized] = useState(false);
+
   // Años disponibles a partir de las fechas de los planes
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
@@ -117,14 +120,17 @@ export default function PlanesSidebar({
       // Filtro por Resultado Evaluación
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
-        
-       
         if (evaluacionFilter === "Sin evaluar") {
             if (estadoReal !== "") return false;
         } else {
             // Filtro por "Aprobado" o "Rechazado"
             if (estadoReal !== evaluacionFilter) return false;
         }
+      }
+
+      // Si "Mostrar finalizados" está DESMARCADO (false), ocultamos los que dicen "Finalizado"
+      if (!showFinalized && p.seguimiento === "Finalizado") {
+         return false;
       }
 
       return true;
@@ -228,6 +234,21 @@ export default function PlanesSidebar({
         </select>
       </div>
 
+      {/* Checkbox para mostrar/ocultar finalizados */}
+      <div className="mb-2 flex items-center gap-2 px-1">
+        <input
+          type="checkbox"
+          id="chkFinalizados"
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          checked={showFinalized}
+          onChange={(e) => setShowFinalized(e.target.checked)}
+        />
+        <label htmlFor="chkFinalizados" className="text-xs text-gray-700 cursor-pointer select-none">
+          Mostrar seguimientos finalizados
+        </label>
+      </div>
+      {/* --------------------------------------------------- */}
+
       <div className="max-h-[70vh] overflow-auto pr-1">
         {filtered.length === 0 && (
           <div className="py-6 text-center text-xs text-gray-500">
@@ -244,6 +265,8 @@ export default function PlanesSidebar({
                 : p.estado ?? undefined;
 
             const isDraftSidebar = estadoPlan === "Borrador";
+
+            const isFinalizado = p.seguimiento === "Finalizado";
 
             return (
               <li key={p.id}>
@@ -271,6 +294,13 @@ export default function PlanesSidebar({
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
                         {estadoPlan}
                       </span>
+                    )}
+                  
+               {/* Badge para finalizados */}
+                    {!active && isFinalizado && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
+                            Finalizado
+                        </span>
                     )}
                   </div>
                 </button>

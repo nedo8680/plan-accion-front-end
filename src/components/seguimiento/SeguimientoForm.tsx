@@ -996,13 +996,24 @@ export default function SeguimientoForm({
                 className="w-full"
                 value={value.seguimiento ?? "Pendiente"}
                 onChange={(e) => onChange("seguimiento", e.target.value as any)}
-                disabled={!canEditSeguimientoEstado || !!ro["seguimiento"]}
+
+                disabled={
+                  !canEditSeguimientoEstado || 
+                  !!ro["seguimiento"] ||
+                  (value.seguimiento === "Finalizado" && !isAdmin)
+                }
                 aria-disabled={!canEditSeguimientoEstado || !!ro["seguimiento"]}
               >
                 <option>Pendiente</option>
                 <option>En progreso</option>
                 <option>Finalizado</option>
               </select>
+            {/* Mensaje visual para entender por qué está bloqueado */}
+              {value.seguimiento === "Finalizado" && !isAdmin && (
+                <p className="mt-1 text-xs text-orange-600">
+                  Este seguimiento ha sido finalizado y ya no se puede editar.
+                </p>
+              )}
             </div>
           </div>
 
