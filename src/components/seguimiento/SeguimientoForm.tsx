@@ -997,11 +997,7 @@ export default function SeguimientoForm({
                 value={value.seguimiento ?? "Pendiente"}
                 onChange={(e) => onChange("seguimiento", e.target.value as any)}
 
-                disabled={
-                  !canEditSeguimientoEstado || 
-                  !!ro["seguimiento"] ||
-                  (value.seguimiento === "Finalizado" && !isAdmin)
-                }
+                disabled={!canEditSeguimientoEstado || !!ro["seguimiento"]}
                 aria-disabled={!canEditSeguimientoEstado || !!ro["seguimiento"]}
               >
                 <option>Pendiente</option>
