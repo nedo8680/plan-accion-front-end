@@ -642,6 +642,8 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
                 base.plan_observacion_calidad ??
                 (p as any).observacion_calidad ??
                 null,
+
+                seguimiento: base.seguimiento ?? p.seguimiento
             }
           : p
       )
