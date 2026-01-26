@@ -135,7 +135,7 @@ export default function PlanesSidebar({
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter]); 
+  }, [plans, q, year, month, evaluacionFilter, showFinalized]);
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
