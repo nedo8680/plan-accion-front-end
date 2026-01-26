@@ -70,6 +70,8 @@ export type UnifiedForm = Seguimiento & {
   aprobado_evaluador?: string | null;
   plan_observacion_calidad?: string | null;
   _saved_by_entidad?: boolean;
+
+  _original_seguimiento?: string;
 };
 
 export const emptyForm = (): UnifiedForm => ({
@@ -97,6 +99,7 @@ export const emptyForm = (): UnifiedForm => ({
   aprobado_evaluador: "",
   plan_observacion_calidad: "",
   _saved_by_entidad: false,
+  _original_seguimiento: "Pendiente",
 });
 
 function toNull(v?: string | null) {
@@ -347,6 +350,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
       (first as any)?.aprobado_evaluador ??
       "",
       _saved_by_entidad: savedByEntidad,
+      _original_seguimiento: first?.seguimiento ?? (plan as any).seguimiento ?? "Pendiente",
     });
   }
 
@@ -611,6 +615,8 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
             .trim()
             .toLowerCase() === actorEmailLower &&
           !!(saved.descripcion_actividades || base.descripcion_actividades || "").trim()),
+
+          _original_seguimiento: base.seguimiento ?? prev.seguimiento ?? "Pendiente",
     }));
     setPlanMissingKeys([]);
 
@@ -643,7 +649,7 @@ async function createPlanFromAction(accion: string, indicadorBase: string, crite
                 (p as any).observacion_calidad ??
                 null,
 
-                seguimiento: base.seguimiento ?? p.seguimiento
+                seguimiento: base.seguimiento || p.seguimiento || "Pendiente"
             }
           : p
       )

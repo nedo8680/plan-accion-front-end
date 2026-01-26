@@ -128,8 +128,9 @@ export default function PlanesSidebar({
         }
       }
 
-      // Si "Mostrar finalizados" está DESMARCADO (false), ocultamos los que dicen "Finalizado"
-      if (!showFinalized && p.seguimiento === "Finalizado") {
+      // Si "Mostrar finalizados" está DESMARCADO, ocultar los que digan Finalizado
+      const status = (p.seguimiento || "").trim(); // Usar trim para evitar errores de espacios
+      if (!showFinalized && status === "Finalizado") {
          return false;
       }
 

@@ -45,6 +45,10 @@ type UnifiedFormValue = {
   estado?: string | null; // "Borrador" | "Pendiente" | ...
   
   aprobado_evaluador?: "Aprobado" | "Rechazado" | "" | null;
+  
+
+  // Campo auxiliar para saber cuál es el estado del seguimiento en la BD antes de editar
+  _original_seguimiento?: string;
 };
 
 type Props = {
@@ -997,7 +1001,7 @@ export default function SeguimientoForm({
                 value={value.seguimiento ?? "Pendiente"}
                 onChange={(e) => onChange("seguimiento", e.target.value as any)}
 
-                disabled={!canEditSeguimientoEstado || !!ro["seguimiento"]}
+                disabled={!canEditSeguimientoEstado || !!ro["seguimiento"] || (value._original_seguimiento === "Finalizado" && !isAdmin)}
                 aria-disabled={!canEditSeguimientoEstado || !!ro["seguimiento"]}
               >
                 <option>Pendiente</option>
@@ -1007,7 +1011,7 @@ export default function SeguimientoForm({
             {/* Mensaje visual para entender por qué está bloqueado */}
               {value.seguimiento === "Finalizado" && !isAdmin && (
                 <p className="mt-1 text-xs text-orange-600">
-                  Este seguimiento ha sido finalizado y ya no se puede editar.
+                  Si este seguimiento es finalizado ya no se podrá editar.
                 </p>
               )}
             </div>
