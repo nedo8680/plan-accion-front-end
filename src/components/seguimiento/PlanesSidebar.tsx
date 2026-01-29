@@ -66,27 +66,25 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación 
+  // Filtro por resultado de evaluación (Plan)
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // Estado para el checkbox
-  const [showFinalized, setShowFinalized] = useState(false);
+  // <--- 1. NUEVO: Filtro por Estado de Seguimiento (Desplegable) --->
+  const [seguimientoFilter, setSeguimientoFilter] = useState("");
 
   // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
     
     for (const p of plans) {
-      // Usamos fecha de inicio y final para poblar el select
       const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
-      const dEnd = parsePlanDate(p.fecha_final) || dStart; // Si no hay final, asumimos que es el mismo año del inicio
+      const dEnd = parsePlanDate(p.fecha_final) || dStart; 
 
       if (!dStart) continue;
 
       const yStart = dStart.getUTCFullYear();
       const yEnd = dEnd ? dEnd.getUTCFullYear() : yStart;
 
-      // Agregamos todos los años entre el inicio y el fin
       for (let y = yStart; y <= yEnd; y++) {
         set.add(y.toString());
       }
@@ -121,41 +119,28 @@ export default function PlanesSidebar({
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
 
-        // Si el plan no tiene fecha de inicio, no podemos filtrarlo por rango (o decidimos ocultarlo)
         if (!dStart) return false;
 
-        // Si no tiene fecha final, asumimos que termina el mismo día que inicia (para cerrar el rango)
-        // O podrías asumir 'new Date()' si quieres que cuente como "hasta hoy".
         const safeEnd = dEnd || dStart;
 
-        // Convertimos a UTC Year y Month
         const startY = dStart.getUTCFullYear();
-        const startM = dStart.getUTCMonth() + 1; // 1-12
+        const startM = dStart.getUTCMonth() + 1; 
 
         const endY = safeEnd.getUTCFullYear();
-        const endM = safeEnd.getUTCMonth() + 1; // 1-12
+        const endM = safeEnd.getUTCMonth() + 1; 
 
-        // Para comparar facil: (Año * 12) + Mes. Esto nos da un número lineal de meses.
         const planStartVal = startY * 12 + startM;
         const planEndVal = endY * 12 + endM;
 
-        // Filtro seleccionado
         if (year) {
             const selYear = parseInt(year);
-            
             if (month) {
-                // Filtro Año + Mes
                 const selMonth = parseInt(month);
                 const selectedVal = selYear * 12 + selMonth;
-
-                // CONDICIÓN: ¿El mes seleccionado está dentro del rango del plan?
-                // InicioPlan <= Seleccionado <= FinPlan
                 if (selectedVal < planStartVal || selectedVal > planEndVal) {
                     return false;
                 }
             } else {
-                // Filtro Solo Año
-                // ¿El año seleccionado se solapa con el rango de años del plan?
                 if (selYear < startY || selYear > endY) {
                     return false;
                 }
@@ -163,26 +148,28 @@ export default function PlanesSidebar({
         }
       }
 
-      // Filtro por Resultado Evaluación
+      // Filtro por Resultado Evaluación (Plan)
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
             if (estadoReal !== "") return false;
         } else {
-            // Filtro por "Aprobado" o "Rechazado"
             if (estadoReal !== evaluacionFilter) return false;
         }
       }
 
-      // Si "Mostrar finalizados" está DESMARCADO, ocultar los que digan Finalizado
-      const status = (p.seguimiento || "").trim();
-      if (!showFinalized && status === "Finalizado") {
-         return false;
+      // <--- 2. NUEVO LOGICA DE FILTRO: Estado del Seguimiento --->
+      // Si hay algo seleccionado en el dropdown, comparamos. Si está vacío ("Todos"), pasa todo.
+      if (seguimientoFilter) {
+        const status = (p.seguimiento || "Pendiente").trim();
+        if (status !== seguimientoFilter) {
+            return false;
+        }
       }
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter, showFinalized, user]); 
+  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]); // <--- Agregamos seguimientoFilter
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -267,7 +254,7 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* Filtro de Estado de Evaluación */}
+      {/* Filtro de Estado de Evaluación del Plan */}
       <div className="mb-2">
         <select
             className="w-full rounded-md border px-2 py-1 text-sm"
@@ -281,18 +268,18 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* Checkbox para mostrar/ocultar finalizados */}
-      <div className="mb-2 flex items-center gap-2 px-1">
-        <input
-          type="checkbox"
-          id="chkFinalizados"
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          checked={showFinalized}
-          onChange={(e) => setShowFinalized(e.target.checked)}
-        />
-        <label htmlFor="chkFinalizados" className="text-xs text-gray-700 cursor-pointer select-none">
-          Mostrar seguimientos finalizados
-        </label>
+      {/* <--- 3. NUEVO SELECT: Estado del Seguimiento ---> */}
+      <div className="mb-2">
+        <select
+          className="w-full rounded-md border px-2 py-1 text-sm"
+          value={seguimientoFilter}
+          onChange={(e) => setSeguimientoFilter(e.target.value)}
+        >
+          <option value="">-- Estado seguimiento del plan --</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="En progreso">En progreso</option>
+          <option value="Finalizado">Finalizado</option>
+        </select>
       </div>
       {/* --------------------------------------------------- */}
 
