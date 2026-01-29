@@ -1,434 +1,349 @@
-import React from "react";
-import Header from "../components/Header";
-import PageBg from "../components/PageBackground";
-import { FaEraser } from "react-icons/fa";
-import SeguimientoForm from "../components/seguimiento/SeguimientoForm";
-import { useSeguimientos, type Plan, type Seguimiento } from "../components/seguimiento/useSeguimientos";
-import { useAuth } from "../context/AuthContext";
-import { FiSend, FiAlertCircle } from "react-icons/fi";
-import { hasAuditorAccess } from "../lib/auth";
+import React, { useMemo, useState } from "react";
+import type { Plan } from "./useSeguimientos";
+import { BsSortUpAlt, BsSortDown } from "react-icons/bs";
+import { useAuth } from "../../context/AuthContext";
 
-import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
-import PlanesSidebar from "../components/seguimiento/PlanesSidebar";
-import SeguimientosTimeline from "../components/seguimiento/SeguimientosTimeline";
-import IndicadoresAutoLoader from "../components/seguimiento/IndicadoresAutoLoader";
+type Props = {
+  plans: Plan[];
+  activePlanId: number | null;
+  onSelect: (id: number) => void;
 
-import {
-  exportAllSeguimientosCSV,
-  exportAllSeguimientosXLSX,
-  exportAllSeguimientosPDF,
-} from "../components/seguimiento/exporters";
+  count?: number;
+  createdOrder: "asc" | "desc";
+  toggleCreatedOrder: () => void;
+  activeEstado?: string | null;
+  activeChildrenCount?: number;
+};
 
-// ─────────────────────────────────────────────────────────────
-// Botonera de exportación
-// ─────────────────────────────────────────────────────────────
-function ExportPlanButtons({
-  hasData,
-  loadAllSeguimientos,
-  currentPlanData,
-}: {
-  hasData: boolean;
-  loadAllSeguimientos: () => Promise<{ plan: Plan; seguimientos: Seguimiento[] }[]>;
-  currentPlanData: { plan: Plan; seguimientos: Seguimiento[] } | null;
-}) {
-  const [loadingAll, setLoadingAll] = React.useState(false);
-  const [loadingCurrent, setLoadingCurrent] = React.useState(false);
+// Helper robusto para Safari: parsear fechas sin zona como UTC
+function parsePlanDate(raw?: string | null): Date | null {
+  if (!raw) return null;
+  const s = raw.trim().replace(" ", "T");
 
-  async function handleExportAll(kind: "csv" | "xlsx" | "pdf") {
-    try {
-      setLoadingAll(true);
-      const groups = await loadAllSeguimientos();
-      if (!groups.length) {
-        alert("No hay registros para exportar.");
-        return;
-      }
-      if (kind === "csv") exportAllSeguimientosCSV(groups);
-      else if (kind === "xlsx") await exportAllSeguimientosXLSX(groups);
-      else await exportAllSeguimientosPDF(groups);
-    } catch (e: any) {
-      console.error("Exportación fallida", e);
-      alert(e?.message ?? "Error exportando.");
-    } finally {
-      setLoadingAll(false);
-    }
+  // Con zona explícita
+  if (/[zZ]$/.test(s) || /[+\-]\d{2}:\d{2}$/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
   }
 
-  async function handleExportCurrent(kind: "csv" | "xlsx" | "pdf") {
-    if (!currentPlanData) return;
-    try {
-      setLoadingCurrent(true);
-      const groups = [currentPlanData]; 
-      if (kind === "csv") exportAllSeguimientosCSV(groups);
-      else if (kind === "xlsx") await exportAllSeguimientosXLSX(groups);
-      else await exportAllSeguimientosPDF(groups);
-    } catch (e: any) {
-      console.error("Exportación actual fallida", e);
-      alert("Error exportando plan actual.");
-    } finally {
-      setLoadingCurrent(false);
-    }
+  // Solo fecha
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T00:00:00Z`);
+    return isNaN(d.getTime()) ? null : d;
   }
 
-  const disabledAll = loadingAll || !hasData;
-  const disabledCurrent = loadingCurrent || !currentPlanData;
+  // Fecha + HH:mm
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) {
+    const d = new Date(`${s}:00Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
 
-  return (
-    <div className="flex flex-col items-end gap-1 ml-4">
-      {currentPlanData && (
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] uppercase font-bold text-blue-700 mr-1">Esta acción:</span>
-          <div className="flex rounded-md shadow-sm" role="group">
-            <button type="button" onClick={() => handleExportCurrent("csv")} disabled={disabledCurrent} className="px-2 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-l-lg hover:bg-blue-50">CSV</button>
-            <button type="button" onClick={() => handleExportCurrent("xlsx")} disabled={disabledCurrent} className="px-2 py-1 text-xs font-medium text-blue-700 bg-white border-t border-b border-blue-200 hover:bg-blue-50">XLSX</button>
-            <button type="button" onClick={() => handleExportCurrent("pdf")} disabled={disabledCurrent} className="px-2 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-r-lg hover:bg-blue-50">PDF</button>
-          </div>
-        </div>
-      )}
-      <div className="flex items-center gap-1">
-        <span className="text-[10px] uppercase font-bold text-gray-500 mr-1">Todos:</span>
-        <div className="flex rounded-md shadow-sm" role="group">
-          <button type="button" onClick={() => handleExportAll("csv")} disabled={disabledAll} className="px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-50">{loadingAll ? "..." : "CSV"}</button>
-          <button type="button" onClick={() => handleExportAll("xlsx")} disabled={disabledAll} className="px-2 py-1 text-xs font-medium text-gray-700 bg-white border-t border-b border-gray-200 hover:bg-gray-50">{loadingAll ? "..." : "XLSX"}</button>
-          <button type="button" onClick={() => handleExportAll("pdf")} disabled={disabledAll} className="px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-50">{loadingAll ? "..." : "PDF"}</button>
-        </div>
-      </div>
-    </div>
-  );
+  // Fecha + HH:mm:ss(.sss)
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
+    const d = new Date(`${s}Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Último recurso: asumir UTC
+  const fallback = new Date(`${s}Z`);
+  return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-export default function SeguimientoPage() {
-  const {
-    plans, activePlanId, setActive, children,
-    current, updateLocal, resetCurrent, startNew, saveCurrent,
-    removeById, addChildImmediate, removePlan,
-    isDuplicableCurrent, pagerIndex, setActiveChild,
-    createdOrder, toggleCreatedOrder,
-    importSeguimientoFields, createPlanFromAction, 
-    usedIndicadores, loadSeguimientosForExport, planMissingKeys,
-  } = useSeguimientos();
-  
-  type IndicadorApiRow = { entidad: string | undefined; indicador: string | undefined; accion: string | undefined; };
-  const [indicadoresApi, setIndicadoresApi] = React.useState<IndicadorApiRow[]>([]);
+export default function PlanesSidebar({
+  plans,
+  activePlanId,
+  onSelect,
+  count,
+  createdOrder,
+  toggleCreatedOrder,
+  activeEstado,
+  activeChildrenCount,
+}: Props) {
+  const { user } = useAuth(); 
+  const [q, setQ] = useState("");
 
-  const { user } = useAuth();
-  const role = user?.role;
-  const isEntidad = role === "entidad";
-  const canAudit = hasAuditorAccess(user as any);
-  const isAuditorRole = role === "auditor";
-  const isAdmin   = role === "admin";
+  //  Filtros de fecha
+  const [year, setYear] = useState("");
+  const [month, setMonth] = useState("");
 
-  const currentAny = current as any;
-  const isSeguimientoActual = Boolean(currentAny?.plan_id);
-  const estadoSeguimientoActual = (currentAny?.seguimiento as string) || "Pendiente";
-  const currentSeguimientoId = isSeguimientoActual ? currentAny?.id : undefined;
-  const estadoPlanActual: string | null = (currentAny?.estado as string) ?? null; 
-  
-  const activePlan = React.useMemo(() => plans.find(p => p.id === activePlanId) ?? null, [plans, activePlanId]);
+  // Filtro por resultado de evaluación (Plan)
+  const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  const isPlanEnBorrador = !activePlan?.estado || activePlan?.estado === "Borrador";
-  const aprobadoEvaluador = (currentAny?.aprobado_evaluador as string) || "";
-  const isPlanDevuelto = aprobadoEvaluador === "Rechazado" || estadoPlanActual === "Plan devuelto para ajustes";
-  const hasSeguimientoActual = Boolean(currentAny?.id) || Boolean(currentAny?.fecha_reporte);
-  const isDraftPlan = estadoPlanActual === "Borrador" && !hasSeguimientoActual;
-  
-  const isPlanHabilitado = (estadoPlanActual || "").toLowerCase() === "plan habilitado para seguimiento";
-  const isPlanAprobado = (currentAny?.aprobado_evaluador as string) === "Aprobado" || isPlanHabilitado; 
-  const isSeguimientoVisible = Boolean(currentAny?.plan_id) && isPlanAprobado;
+  // <--- 1. NUEVO: Filtro por Estado de Seguimiento (Desplegable) --->
+  const [seguimientoFilter, setSeguimientoFilter] = useState("");
 
-  // Lógica de bloqueo global por "Finalizado"
-  const existeSeguimientoFinalizado = React.useMemo(() => {
-    // Normalizamos para detectar 'Finalizado' o 'finalizado'
-    return children.some(child => (child.seguimiento || "").toLowerCase() === "finalizado");
-  }, [children]);
+  // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
+  const yearsAvailable = useMemo(() => {
+    const set = new Set<string>();
+    
+    for (const p of plans) {
+      const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
+      const dEnd = parsePlanDate(p.fecha_final) || dStart; 
 
-  const bloqueoGlobalPorFinalizado = existeSeguimientoFinalizado && !isAdmin;
+      if (!dStart) continue;
 
-  // <--- 1. BLOQUEO POR OBSERVACIÓN (Se mantiene) --->
-  const existeObservacionCalidad = !!(currentAny?.observacion_calidad || "").trim();
-  const bloqueoTotalEntidad = isEntidad && existeObservacionCalidad;
-  const bloqueoSelectorEstado = existeObservacionCalidad;
+      const yStart = dStart.getUTCFullYear();
+      const yEnd = dEnd ? dEnd.getUTCFullYear() : yStart;
 
-  const entidadNoPuedeEnviar =
-    (isEntidad && isSeguimientoActual && estadoSeguimientoActual !== "Pendiente") ||
-    bloqueoGlobalPorFinalizado ||
-    bloqueoTotalEntidad; 
+      for (let y = yStart; y <= yEnd; y++) {
+        set.add(y.toString());
+      }
+    }
+    return Array.from(set).sort();
+  }, [plans]);
 
-  const activeChild = children[pagerIndex] ?? null;
-  const activeChildId = activeChild?.id;
-  
-  const puedeAjustarSeguimiento =
-    !bloqueoGlobalPorFinalizado &&
-    isEntidad && !!activeChildId && !!(activeChild?.observacion_calidad || "").trim();
+  const filtered = useMemo(() => {
+    const hasDateFilter = !!year || !!month;
+    const hasEvalFilter = !!evaluacionFilter; 
+    
+    const userRole = (user?.role as any) || "";
+    const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
-  const canDeleteChild = !!currentSeguimientoId && isAdmin;
-  const canDeletePlan = !!activePlanId && (isAdmin || (isEntidad && isPlanEnBorrador));
-  const canResetForm = isAdmin || isEntidad;
-  
-  const canAddChild =
-    !bloqueoGlobalPorFinalizado &&
-    (isAdmin || isEntidad) &&
-    Boolean(activePlanId || (current as any)?.nombre_entidad?.trim());
+    return plans.filter((p) => {
+      // REGLA DE SEGURIDAD: Los auditores NO ven Borradores
+      if (isAuditor && p.estado === "Borrador") {
+        return false; 
+      }
 
-  const auditorYaEvaluoPlan = 
-    canAudit && 
-    (activePlan?.aprobado_evaluador === "Aprobado" || activePlan?.aprobado_evaluador === "Rechazado");
+      // --- Filtro por texto ---
+      const s = q.trim().toLowerCase();
+      if (s) {
+        const matchesText =
+          p.nombre_entidad?.toLowerCase().includes(s) ||
+          p.num_plan_mejora?.toLowerCase().includes(s);
+        if (!matchesText) return false;
+      }
 
-  const childOriginal = children.find(c => c.id === activeChildId);
-  const auditorYaEvaluoSeguimiento = 
-    canAudit && 
-    !!childOriginal?.observacion_calidad && 
-    childOriginal.observacion_calidad.trim().length > 0;
+      // --- Filtro por fecha (RANGO) ---
+      if (hasDateFilter) {
+        const dStart = parsePlanDate(p.fecha_inicio);
+        const dEnd = parsePlanDate(p.fecha_final);
 
-  const [sending, setSending] = React.useState(false);
-  async function handleEnviar() {
-    try {
-      setSending(true);
-      const currentAny = current as any;
-      const isDraftPlan = currentAny?.estado === "Borrador";
+        if (!dStart) return false;
 
-      if (isEntidad || isAdmin) {
-        const overrides: any = {};
-        if (isDraftPlan) overrides.estado = "Pendiente";
+        const safeEnd = dEnd || dStart;
 
-        const saved = await saveCurrent(overrides);
-        if (!saved) return;
+        const startY = dStart.getUTCFullYear();
+        const startM = dStart.getUTCMonth() + 1; 
 
-        if (isDraftPlan) {
-          alert("Acción de mejora enviada con éxito.");
-        } else {
-          alert("Seguimiento enviado con éxito.");
+        const endY = safeEnd.getUTCFullYear();
+        const endM = safeEnd.getUTCMonth() + 1; 
+
+        const planStartVal = startY * 12 + startM;
+        const planEndVal = endY * 12 + endM;
+
+        if (year) {
+            const selYear = parseInt(year);
+            if (month) {
+                const selMonth = parseInt(month);
+                const selectedVal = selYear * 12 + selMonth;
+                if (selectedVal < planStartVal || selectedVal > planEndVal) {
+                    return false;
+                }
+            } else {
+                if (selYear < startY || selYear > endY) {
+                    return false;
+                }
+            }
         }
-      } else {
-        const saved = await saveCurrent({} as any);
-        if (!saved) return;
-        alert("Seguimiento guardado.");
       }
-    } finally {
-      setSending(false);
-    }
-  }
 
-  const [mobileTab, setMobileTab] = React.useState<"form" | "history">(() => (children.length ? "history" : "form"));
-  const formFocusRef = React.useRef<HTMLInputElement>(null);
-  
-  function focusForm() {
-    setMobileTab("form");
-    requestAnimationFrame(() => {
-      const section = document.getElementById("seguimiento-section");
-      if (section) {
-        section.scrollIntoView({ behavior: "smooth", block: "center" });
-        const firstInput = section.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select");
-        firstInput?.focus();
+      // Filtro por Resultado Evaluación (Plan)
+      if (hasEvalFilter) {
+        const estadoReal = p.aprobado_evaluador || ""; 
+        if (evaluacionFilter === "Sin evaluar") {
+            if (estadoReal !== "") return false;
+        } else {
+            if (estadoReal !== evaluacionFilter) return false;
+        }
       }
+
+      // <--- 2. NUEVO LOGICA DE FILTRO: Estado del Seguimiento --->
+      // Si hay algo seleccionado en el dropdown, comparamos. Si está vacío ("Todos"), pasa todo.
+      if (seguimientoFilter) {
+        const status = (p.seguimiento || "Pendiente").trim();
+        if (status !== seguimientoFilter) {
+            return false;
+        }
+      }
+
+      return true;
     });
-  }
-
-  const handleNewPlanFromAction = async (_accionRaw: string) => {
-    const curr = current as any;
-    const indicadorBase = (curr?.indicador || "").trim();
-    const criterioBase = ""; 
-
-    const tienePlan = Boolean(curr?.plan_id);
-    const puedeComoEntidad = (isEntidad || isAdmin) && tienePlan;
-    const aprobadoEvaluador = (curr?.aprobado_evaluador as string) || "";
-    const isPlanDevuelto = aprobadoEvaluador === "Rechazado" || (curr?.estado as string) === "Plan devuelto para ajustes";
-    const puedeComoEvaluador = canAudit && isPlanDevuelto;
-
-    if (!puedeComoEntidad && !puedeComoEvaluador) {
-      alert("Solo se puede crear una nueva acción de mejora asociada a este indicador después de enviar el plan...");
-      return;
-    }
-    if (!indicadorBase) {
-      alert("Primero diligencia el campo Indicador.");
-      return;
-    }
-    try {
-      await createPlanFromAction("", indicadorBase, criterioBase); 
-      requestAnimationFrame(() => {
-        const main = document.querySelector("main");
-        main?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    } catch (e: any) {
-      alert(e?.message ?? "No se pudo crear.");
-    }
-  };
-  
-  React.useEffect(() => {
-    setMobileTab(children.length ? "history" : "form");
-  }, [activePlanId, children.length]);
+  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]); // <--- Agregamos seguimientoFilter
 
   return (
-    <PageBg>
-      <Header />
-      <main className="mx-auto max-w-6xl p-4">
-        {/* Toolbar superior */}
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-semibold">Seguimiento</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800  ${!isAuditorRole ? "bg-white hover:bg-gray-100" : "bg-gray-400 text-white cursor-not-allowed"}`}
-              onClick={() => startNew()}
-              disabled={isAuditorRole}
-            >
-              Nuevo registro
-            </button>
-            <button
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${canDeletePlan ? "bg-rose-700 hover:bg-rose-800" : "bg-rose-300 cursor-not-allowed"}`}
-              type="button"
-              disabled={!canDeletePlan}
-              onClick={() => {
-                if (!canDeletePlan) return;
-                if (confirm("Se eliminará esta acción de mejora")) removePlan(activePlanId);
-              }}
-            >
-              Borrar registro
-            </button>
-            <ExportPlanButtons
-              hasData={plans.length > 0}
-              loadAllSeguimientos={loadSeguimientosForExport}
-              currentPlanData={activePlan ? { plan: activePlan, seguimientos: children } : null}
-            />
+    <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Acciones de mejora</h3>
+        <button
+          type="button"
+          onClick={toggleCreatedOrder}
+          className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium hover:bg-gray-200"
+          title={
+            createdOrder === "asc"
+              ? "Ordenar: desde la última"
+              : "Ordenar: desde la primera"
+          }
+          aria-label="Alternar orden por fecha de creación"
+        >
+          {createdOrder === "asc" ? (
+            <BsSortUpAlt className="text-base" />
+          ) : (
+            <BsSortDown className="text-base" />
+          )}
+        </button>
+      </div>
+
+      {/* Buscador local */}
+      <div className="mb-2">
+        <input
+          className="w-full rounded-md border px-3 py-2 text-sm"
+          placeholder="Buscar entidad…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+
+      {/* Filtro por fecha */}
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        {/* Año */}
+        <select
+          className="rounded-md border px-2 py-1 text-sm"
+          value={year}
+          onChange={(e) => {
+            setYear(e.target.value);
+          }}
+        >
+          <option value="">Año</option>
+          {yearsAvailable.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+
+        {/* Mes*/}
+        <select
+          className="rounded-md border px-2 py-1 text-sm"
+          value={month}
+          onChange={(e) => {
+            const val = e.target.value;
+            setMonth(val);
+          }}
+        >
+          <option value="">Mes</option>
+
+          {[
+            { value: "01", label: "Enero" },
+            { value: "02", label: "Febrero" },
+            { value: "03", label: "Marzo" },
+            { value: "04", label: "Abril" },
+            { value: "05", label: "Mayo" },
+            { value: "06", label: "Junio" },
+            { value: "07", label: "Julio" },
+            { value: "08", label: "Agosto" },
+            { value: "09", label: "Septiembre" },
+            { value: "10", label: "Octubre" },
+            { value: "11", label: "Noviembre" },
+            { value: "12", label: "Diciembre" },
+          ].map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Filtro de Estado de Evaluación del Plan */}
+      <div className="mb-2">
+        <select
+            className="w-full rounded-md border px-2 py-1 text-sm"
+            value={evaluacionFilter}
+            onChange={(e) => setEvaluacionFilter(e.target.value)}
+        >
+            <option value="">-- Estado Evaluación del plan --</option>
+            <option value="Aprobado">Aprobado</option>
+            <option value="Rechazado">Devuelto</option>
+            <option value="Sin evaluar">Sin evaluar</option>
+        </select>
+      </div>
+
+      {/* <--- 3. NUEVO SELECT: Estado del Seguimiento ---> */}
+      <div className="mb-2">
+        <select
+          className="w-full rounded-md border px-2 py-1 text-sm"
+          value={seguimientoFilter}
+          onChange={(e) => setSeguimientoFilter(e.target.value)}
+        >
+          <option value="">-- Estado seguimiento del plan --</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="En progreso">En progreso</option>
+          <option value="Finalizado">Finalizado</option>
+        </select>
+      </div>
+      {/* --------------------------------------------------- */}
+
+      <div className="max-h-[70vh] overflow-auto pr-1">
+        {filtered.length === 0 && (
+          <div className="py-6 text-center text-xs text-gray-500">
+            Sin resultados
           </div>
-        </div>
+        )}
 
-        {/* Layout */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-4">
-            <PlanesSidebar
-              plans={plans}
-              activePlanId={activePlanId}
-              onSelect={(id) => setActive(id)}
-              count={plans.length}
-              createdOrder={createdOrder}
-              toggleCreatedOrder={toggleCreatedOrder}
-              activeEstado={estadoPlanActual}
-              activeChildrenCount={children.length}
-            />
-          </div>
+        <ul className="space-y-1">
+          {filtered.map((p) => {
+            const active = p.id === activePlanId;
+            const estadoPlan =
+              active && activeEstado != null
+                ? activeEstado
+                : p.estado ?? undefined;
 
-          <div className="lg:col-span-8 space-y-4">
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 lg:hidden">
-              <button onClick={() => setMobileTab("form")} className={`rounded-lg px-3 py-2 text-sm font-medium ${mobileTab === "form" ? "bg-white shadow text-gray-900" : "text-gray-600"}`}>Formulario</button>
-              <button onClick={() => setMobileTab("history")} className={`rounded-lg px-3 py-2 text-sm font-medium ${mobileTab === "history" ? "bg-white shadow text-gray-900" : "text-gray-600"}`}>Historial ({children.length})</button>
-            </div>
+            const isDraftSidebar = estadoPlan === "Borrador";
 
-            {/* <--- 2. RESTAURADA LA ALERTA VISUAL DE FINALIZADO ---> */}
-            {bloqueoGlobalPorFinalizado && (
-              <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0"><FiAlertCircle className="h-5 w-5 text-blue-400" /></div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">Acción de mejora finalizada</h3>
-                    <div className="mt-2 text-sm text-blue-700"><p>Ya existe un seguimiento marcado como <strong>Finalizado</strong>. La acción de mejora se considera cerrada.</p></div>
-                  </div>
-                </div>
-              </div>
-            )}
+            const isFinalizado = (p.seguimiento || "").trim() === "Finalizado";
 
-            <section className={`card ${mobileTab === "form" ? "block" : "hidden lg:block"}`}>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Acción de Mejora</h2>
-                {canResetForm && (
-                  <button type="button" className="btn-outline" onClick={resetCurrent} title="Limpiar formulario actual"><FaEraser /> <span className="hidden sm:inline">Limpiar</span></button>
-                )}
-              </div>
-              <IndicadoresAutoLoader onImport={importSeguimientoFields} onOptionsFromApi={setIndicadoresApi} nombreEntidad={(current as any)?.nombre_entidad || user?.entidad} />
-
-              <SeguimientoForm
-                value={current as any}
-                onChange={updateLocal as any}
-                // <--- 3. BLOQUEO DE CAMPOS --->
-                readOnlyFields={{
-                  observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado,
-                  aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
-                  plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
-                  
-                  // Entidad bloqueada si hay observación
-                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
-                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
-                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
-                  
-                  // NADIE puede cambiar estado si ya tiene observación (devuelto)
-                  seguimiento: bloqueoGlobalPorFinalizado || bloqueoSelectorEstado,
-                }}
-                focusRef={formFocusRef}
-                indicadoresApi={indicadoresApi}   
-                onRequestNewPlanFromAction={handleNewPlanFromAction}
-                usedIndicadores={usedIndicadores}  
-                missingPlanKeys={planMissingKeys}
-                header={
-                  isPlanAprobado ? (
-                    <SeguimientoTabs
-                      items={children}
-                      activeId={activeChildId}
-                      onSelect={(id) => { const idx = children.findIndex((c) => c.id === id); if (idx >= 0) setActiveChild(idx); focusForm(); }}
-                      onAdd={async () => {
-                        if (bloqueoGlobalPorFinalizado) return; 
-                        const parentId = puedeAjustarSeguimiento ? activeChildId : undefined;
-                        try { await addChildImmediate(parentId); focusForm(); } catch (e: any) { alert(e?.message ?? "Error."); }
-                      }}
-                      onDelete={() => { if (currentSeguimientoId && confirm("¿Eliminar?")) removeById(currentSeguimientoId); }}
-                      canAdd={canAddChild && !bloqueoGlobalPorFinalizado}
-                      canDelete={canDeleteChild}
-                    />
-                  ) : null
-                }
-                planActions={
-                  !isAuditorRole && isSeguimientoVisible ? (
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const parentId = puedeAjustarSeguimiento ? activeChildId : undefined;
-                            await addChildImmediate(parentId);
-                            focusForm();
-                          } catch (e: any) { alert(e?.message ?? "Error."); }
-                        }}
-                        disabled={!canAddChild || bloqueoGlobalPorFinalizado}
-                        className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${ (canAddChild && !bloqueoGlobalPorFinalizado) ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed" }`}
-                      >
-                        {puedeAjustarSeguimiento ? "Agregar seguimiento de ajuste..." : "Agregar seguimiento"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { if (!isAdmin) return; if (currentSeguimientoId && confirm("¿Eliminar?")) removeById(currentSeguimientoId); }}
-                        disabled={!canDeleteChild || !currentSeguimientoId}
-                        className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white ${ canDeleteChild && currentSeguimientoId ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-300 cursor-not-allowed" }`}
-                      >
-                        Borrar seguimiento
-                      </button>
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(p.id)}
+                  className={[
+                    "w-full rounded-lg px-3 py-2 text-left text-sm transition",
+                    active
+                      ? "bg-yellow-400 text-gray-800"
+                      : "hover:bg-gray-100 text-gray-800",
+                    isFinalizado && !active ? "opacity-60" : ""
+                  ].join(" ")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-medium">
+                        {p.nombre_entidad || "—"}
+                      </div>
+                      <div className="text-sm opacity-80 italic">
+                        {p.indicador ?? ""}
+                      </div>
                     </div>
-                  ) : null
-                }
-                footer={
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleEnviar}
-                      // <--- 4. BLOQUEO DEL BOTÓN --->
-                      disabled={!isDuplicableCurrent || sending || entidadNoPuedeEnviar}
-                      className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
-                      title={entidadNoPuedeEnviar ? "No se puede modificar." : "Guardar y enviar"}
-                    >
-                      <FiSend /> {sending ? "Enviando..." : "Enviar"}
-                    </button>
-                  </div>
-                }
-              />
-              {canAudit && <p className="mt-2 text-xs text-gray-500">Como auditor puedes editar la observación de calidad.</p>}
-              {!canAudit && isEntidad && <p className="mt-2 text-xs text-gray-500">Nota: Si el seguimiento tiene observaciones, debes crear uno nuevo de ajuste.</p>}
-            </section>
 
-            {isPlanAprobado && (
-              <section className={`${mobileTab === "history" ? "block" : "hidden lg:block"}`}>
-                <h3 className="mb-2 text-sm font-semibold text-gray-700">Historial de seguimientos</h3>
-                <SeguimientosTimeline items={children} activeId={activeChildId} onSelect={(id) => { const idx = children.findIndex((c) => c.id === id); if (idx >= 0) setActiveChild(idx); focusForm(); }} />
-              </section>
-            )}
-          </div>
-        </div>
-      </main>
-    </PageBg>
+                    {!active && isDraftSidebar && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                        {estadoPlan}
+                      </span>
+                    )}
+                    
+                    {/* Badge para finalizados */}
+                    {!active && isFinalizado && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
+                            Finalizado
+                        </span>
+                    )}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </aside>
   );
 }
