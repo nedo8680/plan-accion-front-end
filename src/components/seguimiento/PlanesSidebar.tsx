@@ -76,10 +76,10 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación (Plan)
+  // Filtro por resultado de evaluación 
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // Filtro por Estado de Seguimiento (Desplegable)
+  // <--- 1. NUEVO: Filtro por Estado de Seguimiento (Desplegable) --->
   const [seguimientoFilter, setSeguimientoFilter] = useState("");
 
   // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
@@ -130,6 +130,7 @@ export default function PlanesSidebar({
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
 
+        // Si el plan no tiene fecha de inicio, no podemos filtrarlo por rango (o decidimos ocultarlo)
         if (!dStart) return false;
 
         const safeEnd = dEnd || dStart;
@@ -169,13 +170,12 @@ export default function PlanesSidebar({
         }
       }
 
-      // <--- CORRECCIÓN AQUÍ: Comparación insensible a mayúsculas --->
+      // <--- 2. CORRECCIÓN IMPORTANTE: Comparación insensible a mayúsculas --->
       if (seguimientoFilter) {
-        // Obtenemos el estado y lo pasamos a minúsculas
+        // Normalizamos ambos a minúsculas para comparar
         const status = (p.seguimiento || "Pendiente").trim().toLowerCase();
-        // El filtro también a minúsculas
         const filter = seguimientoFilter.trim().toLowerCase();
-        
+
         if (status !== filter) {
             return false;
         }
