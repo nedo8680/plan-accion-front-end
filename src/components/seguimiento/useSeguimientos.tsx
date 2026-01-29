@@ -311,6 +311,8 @@ export function useSeguimientos() {
     setChildren(safeSegs);
 
     const first = segs[0];
+    const realStatus = first?.seguimiento ?? plan.seguimiento ?? "Pendiente";
+    setPlans((prev) => prev.map((p) => (p.id === plan!.id ? { ...plan!, seguimiento: realStatus } : p)));
     const savedByEntidad =
       !!actorEmailLower &&
       first &&
