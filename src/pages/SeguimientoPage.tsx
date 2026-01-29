@@ -304,7 +304,7 @@ export default function SeguimientoPage() {
     }
     try {
       const nuevoPlan = await createPlanFromAction("", indicadorBase, criterioBase); 
-      await setActive(nuevoPlan.id);
+      await setActive(nuevoPlan);
       requestAnimationFrame(() => {
         const main = document.querySelector("main");
         main?.scrollIntoView({ behavior: "smooth", block: "start" });

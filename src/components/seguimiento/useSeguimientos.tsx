@@ -681,30 +681,70 @@ export function useSeguimientos() {
   async function loadSeguimientosForExport() {
     const results: { plan: Plan; seguimientos: Seguimiento[] }[] = [];
     const targets = sortedPlans.length ? sortedPlans : plans;
+
     for (const plan of targets) {
       if (!plan?.id) continue;
       let segs: Seguimiento[] = [];
       try {
         const data = await api(`/seguimiento/${plan.id}/seguimiento`);
         segs = Array.isArray(data) ? data : [];
-      } catch (e) { console.error(`useSeguimientos: error cargando seguimientos para plan ${plan.id}`, e); }
-      
-      // <--- AQUI ESTÁ EL FIX DE LA EXPORTACIÓN QUE SE QUEDABA VACÍA --->
-      const normalized = segs.map((s) => ({
+      } catch (e) {
+        console.error(`useSeguimientos: error cargando seguimientos para plan ${plan.id}`, e);
+      }
+
+      // 1. Normalizamos los seguimientos existentes
+      // Usamos 'any' en el map para permitir flexibilidad al agregar campos extra que no están en el tipo Seguimiento estricto
+      let normalized = segs.map((s) => ({
         ...s,
         entidad: s.entidad ?? plan.nombre_entidad,
         
-        // Heredar del padre (Plan) si el hijo (Seguimiento) lo tiene vacío
+        // Heredar del padre (Plan)
         observacion_informe_calidad: s.observacion_informe_calidad ?? plan.observacion_informe_calidad ?? null,
         indicador: s.indicador ?? plan.indicador ?? null,
         criterio: s.criterio ?? plan.criterio ?? null,
         insumo_mejora: s.insumo_mejora ?? plan.insumo_mejora ?? null,
         tipo_accion_mejora: s.tipo_accion_mejora ?? plan.tipo_accion_mejora ?? null,
-
         accion_mejora_planteada: s.accion_mejora_planteada ?? plan.accion_mejora_planteada ?? null,
+        
+        // <--- CAMPOS QUE FALTABAN EN EL OBJETO VIRTUAL --->
+        plan_descripcion_actividades: plan.descripcion_actividades ?? null,
+        plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? null,
+        // --------------------------------------------------
+
         aprobado_evaluador: (plan as any).aprobado_evaluador ?? (s as any).aprobado_evaluador ?? null,
       }));
-      
+
+      // 2. Si no hay seguimientos, creamos uno "virtual" con la misma estructura
+      if (normalized.length === 0) {
+        normalized = [{
+          id: -1, // ID ficticio
+          plan_id: plan.id,
+          entidad: plan.nombre_entidad,
+          
+          // Llenamos SOLO los datos del PLAN
+          observacion_informe_calidad: plan.observacion_informe_calidad ?? null,
+          indicador: plan.indicador ?? null,
+          criterio: plan.criterio ?? null,
+          insumo_mejora: plan.insumo_mejora ?? null,
+          tipo_accion_mejora: plan.tipo_accion_mejora ?? null,
+          accion_mejora_planteada: plan.accion_mejora_planteada ?? null,
+          
+          // <--- AQUI AGREGAMOS LAS PROPIEDADES FALTANTES --->
+          plan_descripcion_actividades: plan.descripcion_actividades ?? null,
+          plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? null,
+          // --------------------------------------------------
+          
+          // Datos propios del seguimiento van vacíos
+          descripcion_actividades: "", 
+          evidencia_cumplimiento: "",
+          fecha_reporte: null,
+          
+          // Estado inicial
+          seguimiento: "Pendiente", 
+          aprobado_evaluador: (plan as any).aprobado_evaluador ?? null,
+        } as any]; // Usamos 'as any' para evitar conflictos estrictos de tipos en el objeto virtual
+      }
+
       results.push({ plan, seguimientos: normalized });
     }
     return results;
