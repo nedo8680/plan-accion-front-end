@@ -151,9 +151,9 @@ export default function SeguimientoForm({
 
   const canEditSeguimientoEstado = isAdmin || isAuditor;
 
-  const canEditPlanBlock = canEditCamposEntidad && isDraftEstado;
+  const canEditPlanBlock = canEditCamposEntidad && (isDraftEstado || isPlanDevueltoEvaluador);
   const canEditNombreEntidad = false;
-  const canEditEnlaceEntidad = canEditCamposEntidad && isDraftEstado;
+  const canEditEnlaceEntidad = canEditPlanBlock;
 
   const [eviUploading, setEviUploading] = React.useState(false);
   const [eviError, setEviError] = React.useState<string | null>(null);
