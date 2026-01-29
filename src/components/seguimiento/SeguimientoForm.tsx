@@ -552,14 +552,7 @@ export default function SeguimientoForm({
               aria-invalid={hasPlanError("accion_mejora_planteada")}
             />
 
-            {hasMultipleActions && (
-              <div className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <p className="font-semibold">Hemos detectado más de una posible acción.</p>
-                <p>
-                  Considera registrar cada acción como un plan separado antes de enviar.
-                </p>
-              </div>
-            )}
+
 
           </div>
         </div>
