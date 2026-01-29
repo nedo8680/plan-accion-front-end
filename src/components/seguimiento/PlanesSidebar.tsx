@@ -49,16 +49,6 @@ function parsePlanDate(raw?: string | null): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// Helper: obtener una fecha "representativa" del plan
-function getPlanDate(p: Plan): Date | null {
-  return (
-    parsePlanDate(p.created_at) ||
-    parsePlanDate((p as any).createdAt) ||
-    parsePlanDate(p.fecha_inicio) ||
-    parsePlanDate(p.fecha_final)
-  );
-}
-
 export default function PlanesSidebar({
   plans,
   activePlanId,
@@ -82,13 +72,24 @@ export default function PlanesSidebar({
   // Estado para el checkbox
   const [showFinalized, setShowFinalized] = useState(false);
 
-  // Años disponibles a partir de las fechas de los planes
+  // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
+    
     for (const p of plans) {
-      const d = getPlanDate(p);
-      if (!d) continue;
-      set.add(d.getFullYear().toString());
+      // Usamos fecha de inicio y final para poblar el select
+      const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
+      const dEnd = parsePlanDate(p.fecha_final) || dStart; // Si no hay final, asumimos que es el mismo año del inicio
+
+      if (!dStart) continue;
+
+      const yStart = dStart.getUTCFullYear();
+      const yEnd = dEnd ? dEnd.getUTCFullYear() : yStart;
+
+      // Agregamos todos los años entre el inicio y el fin
+      for (let y = yStart; y <= yEnd; y++) {
+        set.add(y.toString());
+      }
     }
     return Array.from(set).sort();
   }, [plans]);
@@ -97,7 +98,6 @@ export default function PlanesSidebar({
     const hasDateFilter = !!year || !!month;
     const hasEvalFilter = !!evaluacionFilter; 
     
-    // <--- CORRECCIÓN AQUÍ: Usamos (user?.role as any) para evitar el error de tipos --->
     const userRole = (user?.role as any) || "";
     const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
@@ -116,16 +116,51 @@ export default function PlanesSidebar({
         if (!matchesText) return false;
       }
 
-      // --- Filtro por fecha ---
+      // --- Filtro por fecha (RANGO) ---
       if (hasDateFilter) {
-        const d = getPlanDate(p);
-        if (!d) return false; // si hay filtro de fecha y el plan no tiene fecha, se excluye
+        const dStart = parsePlanDate(p.fecha_inicio);
+        const dEnd = parsePlanDate(p.fecha_final);
 
-        const y = d.getFullYear().toString();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
+        // Si el plan no tiene fecha de inicio, no podemos filtrarlo por rango (o decidimos ocultarlo)
+        if (!dStart) return false;
 
-        if (year && y !== year) return false;
-        if (month && m !== month) return false;
+        // Si no tiene fecha final, asumimos que termina el mismo día que inicia (para cerrar el rango)
+        // O podrías asumir 'new Date()' si quieres que cuente como "hasta hoy".
+        const safeEnd = dEnd || dStart;
+
+        // Convertimos a UTC Year y Month
+        const startY = dStart.getUTCFullYear();
+        const startM = dStart.getUTCMonth() + 1; // 1-12
+
+        const endY = safeEnd.getUTCFullYear();
+        const endM = safeEnd.getUTCMonth() + 1; // 1-12
+
+        // Para comparar facil: (Año * 12) + Mes. Esto nos da un número lineal de meses.
+        const planStartVal = startY * 12 + startM;
+        const planEndVal = endY * 12 + endM;
+
+        // Filtro seleccionado
+        if (year) {
+            const selYear = parseInt(year);
+            
+            if (month) {
+                // Filtro Año + Mes
+                const selMonth = parseInt(month);
+                const selectedVal = selYear * 12 + selMonth;
+
+                // CONDICIÓN: ¿El mes seleccionado está dentro del rango del plan?
+                // InicioPlan <= Seleccionado <= FinPlan
+                if (selectedVal < planStartVal || selectedVal > planEndVal) {
+                    return false;
+                }
+            } else {
+                // Filtro Solo Año
+                // ¿El año seleccionado se solapa con el rango de años del plan?
+                if (selYear < startY || selYear > endY) {
+                    return false;
+                }
+            }
+        }
       }
 
       // Filtro por Resultado Evaluación
@@ -139,7 +174,7 @@ export default function PlanesSidebar({
         }
       }
 
-      // Si "Mostrar finalizados" está DESMARCADO (false), ocultamos los que dicen "Finalizado"
+      // Si "Mostrar finalizados" está DESMARCADO, ocultar los que digan Finalizado
       const status = (p.seguimiento || "").trim();
       if (!showFinalized && status === "Finalizado") {
          return false;
