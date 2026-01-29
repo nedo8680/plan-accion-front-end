@@ -49,16 +49,6 @@ function parsePlanDate(raw?: string | null): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// Helper: obtener una fecha "representativa" del plan
-function getPlanDate(p: Plan): Date | null {
-  return (
-    parsePlanDate(p.created_at) ||
-    parsePlanDate((p as any).createdAt) ||
-    parsePlanDate(p.fecha_inicio) ||
-    parsePlanDate(p.fecha_final)
-  );
-}
-
 export default function PlanesSidebar({
   plans,
   activePlanId,
@@ -76,18 +66,17 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación (Plan)
+  // Filtro por resultado de evaluación 
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // <--- RESTAURADO: Checkbox para mostrar/ocultar finalizados --->
+  // Checkbox para mostrar/ocultar finalizados
   const [showFinalized, setShowFinalized] = useState(false);
 
-  // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
+  // Años disponibles
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
     
     for (const p of plans) {
-      // Usamos fecha de inicio y final para poblar el select
       const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
       const dEnd = parsePlanDate(p.fecha_final) || dStart; 
 
@@ -96,7 +85,6 @@ export default function PlanesSidebar({
       const yStart = dStart.getUTCFullYear();
       const yEnd = dEnd ? dEnd.getUTCFullYear() : yStart;
 
-      // Agregamos todos los años entre el inicio y el fin
       for (let y = yStart; y <= yEnd; y++) {
         set.add(y.toString());
       }
@@ -112,12 +100,12 @@ export default function PlanesSidebar({
     const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
     return plans.filter((p) => {
-      // REGLA DE SEGURIDAD: Los auditores NO ven Borradores
+      // 1. Ocultar Borradores al Auditor
       if (isAuditor && p.estado === "Borrador") {
         return false; 
       }
 
-      // --- Filtro por texto ---
+      // 2. Filtro por texto
       const s = q.trim().toLowerCase();
       if (s) {
         const matchesText =
@@ -126,7 +114,7 @@ export default function PlanesSidebar({
         if (!matchesText) return false;
       }
 
-      // --- Filtro por fecha (RANGO) ---
+      // 3. Filtro por fecha (Rango)
       if (hasDateFilter) {
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
@@ -134,10 +122,8 @@ export default function PlanesSidebar({
         if (!dStart) return false;
 
         const safeEnd = dEnd || dStart;
-
         const startY = dStart.getUTCFullYear();
         const startM = dStart.getUTCMonth() + 1; 
-
         const endY = safeEnd.getUTCFullYear();
         const endM = safeEnd.getUTCMonth() + 1; 
 
@@ -160,7 +146,7 @@ export default function PlanesSidebar({
         }
       }
 
-      // Filtro por Resultado Evaluación (Plan)
+      // 4. Filtro por Resultado Evaluación
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
@@ -170,9 +156,12 @@ export default function PlanesSidebar({
         }
       }
 
-      // <--- RESTAURADO: Si "Mostrar finalizados" está DESMARCADO, ocultamos los que dicen "Finalizado" --->
-      const status = (p.seguimiento || "").trim();
-      if (!showFinalized && status === "Finalizado") {
+      // 5. FILTRO FINALIZADOS (CORREGIDO)
+      // Normalizamos a minúsculas para asegurar que detecte "finalizado", "Finalizado", etc.
+      const statusLower = (p.seguimiento || "").trim().toLowerCase();
+      
+      // Si el check está apagado (!showFinalized) Y el estado es finalizado -> OCULTAR
+      if (!showFinalized && statusLower === "finalizado") {
          return false;
       }
 
@@ -277,7 +266,7 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* <--- RESTAURADO: Checkbox para mostrar/ocultar finalizados ---> */}
+      {/* Checkbox para mostrar/ocultar finalizados */}
       <div className="mb-2 flex items-center gap-2 px-1">
         <input
           type="checkbox"
@@ -309,7 +298,9 @@ export default function PlanesSidebar({
 
             const isDraftSidebar = estadoPlan === "Borrador";
 
-            const isFinalizado = (p.seguimiento || "").trim() === "Finalizado";
+            // Calculamos badge finalizado (insensible a mayúsculas)
+            const statusLower = (p.seguimiento || "").trim().toLowerCase();
+            const isFinalizado = statusLower === "finalizado";
 
             return (
               <li key={p.id}>
