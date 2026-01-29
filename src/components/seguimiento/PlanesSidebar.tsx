@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { Plan } from "./useSeguimientos";
 import { BsSortUpAlt, BsSortDown } from "react-icons/bs";
+import { useAuth } from "../../context/AuthContext";
 
 type Props = {
   plans: Plan[];
@@ -68,6 +69,7 @@ export default function PlanesSidebar({
   activeEstado,
   activeChildrenCount,
 }: Props) {
+  const { user } = useAuth(); 
   const [q, setQ] = useState("");
 
   //  Filtros de fecha
@@ -94,8 +96,17 @@ export default function PlanesSidebar({
   const filtered = useMemo(() => {
     const hasDateFilter = !!year || !!month;
     const hasEvalFilter = !!evaluacionFilter; 
+    
+    // <--- CORRECCIÓN AQUÍ: Usamos (user?.role as any) para evitar el error de tipos --->
+    const userRole = (user?.role as any) || "";
+    const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
     return plans.filter((p) => {
+      // REGLA DE SEGURIDAD: Los auditores NO ven Borradores
+      if (isAuditor && p.estado === "Borrador") {
+        return false; 
+      }
+
       // --- Filtro por texto ---
       const s = q.trim().toLowerCase();
       if (s) {
@@ -128,15 +139,15 @@ export default function PlanesSidebar({
         }
       }
 
-      // Si "Mostrar finalizados" está DESMARCADO, ocultar los que digan Finalizado
-      const status = (p.seguimiento || "").trim(); // Usar trim para evitar errores de espacios
+      // Si "Mostrar finalizados" está DESMARCADO (false), ocultamos los que dicen "Finalizado"
+      const status = (p.seguimiento || "").trim();
       if (!showFinalized && status === "Finalizado") {
          return false;
       }
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter, showFinalized]);
+  }, [plans, q, year, month, evaluacionFilter, showFinalized, user]); 
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -267,7 +278,7 @@ export default function PlanesSidebar({
 
             const isDraftSidebar = estadoPlan === "Borrador";
 
-            const isFinalizado = p.seguimiento === "Finalizado";
+            const isFinalizado = (p.seguimiento || "").trim() === "Finalizado";
 
             return (
               <li key={p.id}>
@@ -279,6 +290,7 @@ export default function PlanesSidebar({
                     active
                       ? "bg-yellow-400 text-gray-800"
                       : "hover:bg-gray-100 text-gray-800",
+                    isFinalizado && !active ? "opacity-60" : ""
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -296,8 +308,8 @@ export default function PlanesSidebar({
                         {estadoPlan}
                       </span>
                     )}
-                  
-               {/* Badge para finalizados */}
+                    
+                    {/* Badge para finalizados */}
                     {!active && isFinalizado && (
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
                             Finalizado
