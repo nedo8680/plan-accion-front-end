@@ -15,41 +15,19 @@ type Props = {
   activeChildrenCount?: number;
 };
 
-// Helper robusto para Safari: parsear fechas sin zona como UTC
+// Helper robusto para Safari
 function parsePlanDate(raw?: string | null): Date | null {
   if (!raw) return null;
   const s = raw.trim().replace(" ", "T");
-
-  // Con zona explícita
-  if (/[zZ]$/.test(s) || /[+\-]\d{2}:\d{2}$/.test(s)) {
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // Solo fecha
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const d = new Date(`${s}T00:00:00Z`);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // Fecha + HH:mm
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) {
-    const d = new Date(`${s}:00Z`);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // Fecha + HH:mm:ss(.sss)
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
-    const d = new Date(`${s}Z`);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // Último recurso: asumir UTC
+  if (/[zZ]$/.test(s) || /[+\-]\d{2}:\d{2}$/.test(s)) { const d = new Date(s); return isNaN(d.getTime()) ? null : d; }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const d = new Date(`${s}T00:00:00Z`); return isNaN(d.getTime()) ? null : d; }
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) { const d = new Date(`${s}:00Z`); return isNaN(d.getTime()) ? null : d; }
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) { const d = new Date(`${s}Z`); return isNaN(d.getTime()) ? null : d; }
   const fallback = new Date(`${s}Z`);
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// Helper: obtener una fecha "representativa" del plan
+// Helper fecha
 function getPlanDate(p: Plan): Date | null {
   return (
     parsePlanDate(p.created_at) ||
@@ -76,29 +54,22 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación 
+  // Filtro 1: Evaluación del Plan (Aprobado/Rechazado)
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // <--- 1. NUEVO: Filtro por Estado de Seguimiento (Desplegable) --->
-  const [seguimientoFilter, setSeguimientoFilter] = useState("");
+  // <--- CAMBIO 1: Estado para el filtro de SEGUIMIENTO (Reemplaza al checkbox) --->
+  const [seguimientoFilter, setSeguimientoFilter] = useState(""); 
 
-  // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
+  // Años disponibles
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
-    
     for (const p of plans) {
-      // Usamos fecha de inicio y final para poblar el select
       const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
       const dEnd = parsePlanDate(p.fecha_final) || dStart; 
-
       if (!dStart) continue;
-
       const yStart = dStart.getUTCFullYear();
       const yEnd = dEnd ? dEnd.getUTCFullYear() : yStart;
-
-      for (let y = yStart; y <= yEnd; y++) {
-        set.add(y.toString());
-      }
+      for (let y = yStart; y <= yEnd; y++) set.add(y.toString());
     }
     return Array.from(set).sort();
   }, [plans]);
@@ -107,16 +78,15 @@ export default function PlanesSidebar({
     const hasDateFilter = !!year || !!month;
     const hasEvalFilter = !!evaluacionFilter; 
     
+    // Solución error tipos
     const userRole = (user?.role as any) || "";
     const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
     return plans.filter((p) => {
-      // REGLA DE SEGURIDAD: Los auditores NO ven Borradores
-      if (isAuditor && p.estado === "Borrador") {
-        return false; 
-      }
+      // 1. Ocultar borradores al auditor
+      if (isAuditor && p.estado === "Borrador") return false; 
 
-      // --- Filtro por texto ---
+      // 2. Filtro Texto
       const s = q.trim().toLowerCase();
       if (s) {
         const matchesText =
@@ -125,22 +95,16 @@ export default function PlanesSidebar({
         if (!matchesText) return false;
       }
 
-      // --- Filtro por fecha (RANGO) ---
+      // 3. Filtro Fecha (Rango)
       if (hasDateFilter) {
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
-
-        // Si el plan no tiene fecha de inicio, no podemos filtrarlo por rango (o decidimos ocultarlo)
         if (!dStart) return false;
-
         const safeEnd = dEnd || dStart;
-
         const startY = dStart.getUTCFullYear();
         const startM = dStart.getUTCMonth() + 1; 
-
         const endY = safeEnd.getUTCFullYear();
         const endM = safeEnd.getUTCMonth() + 1; 
-
         const planStartVal = startY * 12 + startM;
         const planEndVal = endY * 12 + endM;
 
@@ -149,18 +113,14 @@ export default function PlanesSidebar({
             if (month) {
                 const selMonth = parseInt(month);
                 const selectedVal = selYear * 12 + selMonth;
-                if (selectedVal < planStartVal || selectedVal > planEndVal) {
-                    return false;
-                }
+                if (selectedVal < planStartVal || selectedVal > planEndVal) return false;
             } else {
-                if (selYear < startY || selYear > endY) {
-                    return false;
-                }
+                if (selYear < startY || selYear > endY) return false;
             }
         }
       }
 
-      // Filtro por Resultado Evaluación (Plan)
+      // 4. Filtro Evaluación del Plan
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
@@ -170,20 +130,21 @@ export default function PlanesSidebar({
         }
       }
 
-      // <--- 2. CORRECCIÓN IMPORTANTE: Comparación insensible a mayúsculas --->
+      // <--- CAMBIO 2: Lógica del Filtro de Seguimiento (Pendiente/En progreso/Finalizado) --->
       if (seguimientoFilter) {
-        // Normalizamos ambos a minúsculas para comparar
-        const status = (p.seguimiento || "Pendiente").trim().toLowerCase();
-        const filter = seguimientoFilter.trim().toLowerCase();
+         // Normalizamos a minúsculas para evitar errores de comparación
+         // Si es nulo, asumimos "pendiente"
+         const estadoActual = (p.seguimiento || "Pendiente").trim().toLowerCase();
+         const filtroSeleccionado = seguimientoFilter.trim().toLowerCase();
 
-        if (status !== filter) {
-            return false;
-        }
+         if (estadoActual !== filtroSeleccionado) {
+             return false;
+         }
       }
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]);
+  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]); // <--- Agregamos seguimientoFilter
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -193,22 +154,13 @@ export default function PlanesSidebar({
           type="button"
           onClick={toggleCreatedOrder}
           className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium hover:bg-gray-200"
-          title={
-            createdOrder === "asc"
-              ? "Ordenar: desde la última"
-              : "Ordenar: desde la primera"
-          }
-          aria-label="Alternar orden por fecha de creación"
+          title={createdOrder === "asc" ? "Ordenar: desde la última" : "Ordenar: desde la primera"}
         >
-          {createdOrder === "asc" ? (
-            <BsSortUpAlt className="text-base" />
-          ) : (
-            <BsSortDown className="text-base" />
-          )}
+          {createdOrder === "asc" ? <BsSortUpAlt className="text-base" /> : <BsSortDown className="text-base" />}
         </button>
       </div>
 
-      {/* Buscador local */}
+      {/* Buscador */}
       <div className="mb-2">
         <input
           className="w-full rounded-md border px-3 py-2 text-sm"
@@ -218,57 +170,32 @@ export default function PlanesSidebar({
         />
       </div>
 
-      {/* Filtro por fecha */}
+      {/* Filtro Fecha */}
       <div className="grid grid-cols-2 gap-2 mb-2">
-        {/* Año */}
         <select
           className="rounded-md border px-2 py-1 text-sm"
           value={year}
-          onChange={(e) => {
-            setYear(e.target.value);
-          }}
+          onChange={(e) => setYear(e.target.value)}
         >
           <option value="">Año</option>
-          {yearsAvailable.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
+          {yearsAvailable.map((y) => (<option key={y} value={y}>{y}</option>))}
         </select>
-
-        {/* Mes*/}
         <select
           className="rounded-md border px-2 py-1 text-sm"
           value={month}
-          onChange={(e) => {
-            const val = e.target.value;
-            setMonth(val);
-          }}
+          onChange={(e) => setMonth(e.target.value)}
         >
           <option value="">Mes</option>
-
           {[
-            { value: "01", label: "Enero" },
-            { value: "02", label: "Febrero" },
-            { value: "03", label: "Marzo" },
-            { value: "04", label: "Abril" },
-            { value: "05", label: "Mayo" },
-            { value: "06", label: "Junio" },
-            { value: "07", label: "Julio" },
-            { value: "08", label: "Agosto" },
-            { value: "09", label: "Septiembre" },
-            { value: "10", label: "Octubre" },
-            { value: "11", label: "Noviembre" },
-            { value: "12", label: "Diciembre" },
-          ].map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
+            { value: "01", label: "Enero" }, { value: "02", label: "Febrero" }, { value: "03", label: "Marzo" },
+            { value: "04", label: "Abril" }, { value: "05", label: "Mayo" }, { value: "06", label: "Junio" },
+            { value: "07", label: "Julio" }, { value: "08", label: "Agosto" }, { value: "09", label: "Septiembre" },
+            { value: "10", label: "Octubre" }, { value: "11", label: "Noviembre" }, { value: "12", label: "Diciembre" },
+          ].map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
         </select>
       </div>
 
-      {/* Filtro de Estado de Evaluación del Plan */}
+      {/* Filtro Evaluación */}
       <div className="mb-2">
         <select
             className="w-full rounded-md border px-2 py-1 text-sm"
@@ -282,19 +209,20 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* Filtro Estado del Seguimiento */}
+      {/* <--- CAMBIO 3: Nuevo Select de Estado de Seguimiento ---> */}
       <div className="mb-2">
         <select
           className="w-full rounded-md border px-2 py-1 text-sm"
           value={seguimientoFilter}
           onChange={(e) => setSeguimientoFilter(e.target.value)}
         >
-          <option value="">-- Estado seguimiento del plan --</option>
+          <option value="">-- Estado de los seguimientos --</option>
           <option value="Pendiente">Pendiente</option>
           <option value="En progreso">En progreso</option>
           <option value="Finalizado">Finalizado</option>
         </select>
       </div>
+      {/* -------------------------------------------------------- */}
 
       <div className="max-h-[70vh] overflow-auto pr-1">
         {filtered.length === 0 && (
@@ -306,14 +234,12 @@ export default function PlanesSidebar({
         <ul className="space-y-1">
           {filtered.map((p) => {
             const active = p.id === activePlanId;
-            const estadoPlan =
-              active && activeEstado != null
-                ? activeEstado
-                : p.estado ?? undefined;
-
+            const estadoPlan = active && activeEstado != null ? activeEstado : p.estado ?? undefined;
             const isDraftSidebar = estadoPlan === "Borrador";
-
-            const isFinalizado = (p.seguimiento || "").trim() === "Finalizado";
+            
+            // Calculamos si es finalizado para mostrar el badge
+            const statusLower = (p.seguimiento || "").trim().toLowerCase();
+            const isFinalizado = statusLower === "finalizado";
 
             return (
               <li key={p.id}>
@@ -344,7 +270,6 @@ export default function PlanesSidebar({
                       </span>
                     )}
                     
-                    {/* Badge para finalizados */}
                     {!active && isFinalizado && (
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
                             Finalizado
