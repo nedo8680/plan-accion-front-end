@@ -204,28 +204,60 @@ export function useSeguimientos() {
   async function createPlanFromAction(accion: string, indicadorBase: string, criterioBase?: string) {
     const nombre = form.nombre_entidad?.trim();
     const enlace = form.enlace_entidad ?? "";
-    if (!nombre) throw new Error("Primero ingresa el nombre de la entidad.");
+
+    if (!nombre) {
+      throw new Error("Primero ingresa el nombre de la entidad.");
+    }
 
     const payload: any = {
       nombre_entidad: nombre,
       enlace_entidad: toNull(enlace),
-      estado: "Borrador",    
-      indicador: toNull(indicadorBase),    
+      estado: "Borrador",
+      indicador: toNull(indicadorBase),
       criterio: toNull(criterioBase ?? ""),
     };
-    if ((accion || "").trim()) payload.accion_mejora_planteada = accion.trim();
 
-    const created: Plan = await api("/seguimiento", { method: "POST", body: JSON.stringify(payload) });
+    const accionLimpia = (accion || "").trim();
+    if (accionLimpia) {
+      payload.accion_mejora_planteada = accionLimpia;
+    }
 
+    const created: Plan = await api("/seguimiento", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    // En frontend lo tratamos como plan con indicador + estado Borrador
     const createdWithIndicador: Plan = {
       ...created,
       indicador: created.indicador ?? indicadorBase,
       criterio: created.criterio ?? criterioBase,
       estado: created.estado ?? "Borrador",
     };
+
+    // 1. Agregamos a la lista visual
     setPlans((prev) => [createdWithIndicador, ...prev]);
+    
+    // 2. Marcamos como activo (Amarillo)
     setActivePlanId(createdWithIndicador.id);
-    return createdWithIndicador.id;
+    
+    // 3.  Forzamos la carga del formulario inmediatamente
+    setForm({
+        ...emptyForm(),
+        plan_id: createdWithIndicador.id,
+        nombre_entidad: createdWithIndicador.nombre_entidad,
+        enlace_entidad: createdWithIndicador.enlace_entidad ?? "",
+        estado: createdWithIndicador.estado,
+        accion_mejora_planteada: createdWithIndicador.accion_mejora_planteada ?? "",
+        indicador: createdWithIndicador.indicador ?? "",
+        criterio: createdWithIndicador.criterio ?? "",
+        _original_seguimiento: "Pendiente"
+    });
+    
+    // (es un plan nuevo, no tiene seguimientos)
+    setChildren([]);
+
+    return createdWithIndicador;
   }
 
   const sortedPlans = useMemo(() => {

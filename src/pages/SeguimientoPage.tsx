@@ -286,34 +286,54 @@ export default function SeguimientoPage() {
 
   const handleNewPlanFromAction = async (_accionRaw: string) => {
     const curr = current as any;
+
     const indicadorBase = (curr?.indicador || "").trim();
-    const criterioBase  = (curr?.criterio || "").trim();
+    
+    // CORRECCIÓN 1: No copiamos el criterio. Lo enviamos vacío.
+    // const criterioBase  = (curr?.criterio || "").trim(); <--- BORRAMOS ESTO
+    const criterioBase = ""; // <--- PONEMOS ESTO
+
     const tienePlan = Boolean(curr?.plan_id);
+
     const puedeComoEntidad = (isEntidad || isAdmin) && tienePlan;
+
     const aprobadoEvaluador = (curr?.aprobado_evaluador as string) || "";
-    const isPlanDevuelto = aprobadoEvaluador === "Rechazado" || (curr?.estado as string) === "Plan devuelto para ajustes";
+    const isPlanDevuelto =
+      aprobadoEvaluador === "Rechazado" ||
+      (curr?.estado as string) === "Plan devuelto para ajustes";
+
     const puedeComoEvaluador = canAudit && isPlanDevuelto;
 
     if (!puedeComoEntidad && !puedeComoEvaluador) {
-      alert("Solo se puede crear una nueva acción de mejora asociada a este indicador...");
+      alert(
+        "Solo se puede crear una nueva acción de mejora asociada a este indicador " +
+          "después de enviar el plan o cuando el plan ha sido devuelto para ajustes por el equipo evaluador."
+      );
       return;
     }
+
     if (!indicadorBase) {
       alert("Primero diligencia el campo Indicador.");
       return;
     }
+
     try {
-      const nuevoPlan = await createPlanFromAction("", indicadorBase, criterioBase); 
-      await setActive(nuevoPlan);
+      // CORRECCIÓN 2: Ya no llamamos a setActive aquí. 
+      // createPlanFromAction se encarga de todo internamente.
+      await createPlanFromAction("", indicadorBase, criterioBase); 
+
       requestAnimationFrame(() => {
         const main = document.querySelector("main");
         main?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     } catch (e: any) {
-      alert(e?.message ?? "No se pudo crear.");
+      alert(
+        e?.message ??
+          "No se pudo crear la nueva acción de mejora asociada a este indicador."
+      );
     }
   };
-
+  
   React.useEffect(() => {
     setMobileTab(children.length ? "history" : "form");
   }, [activePlanId, children.length]);
