@@ -93,7 +93,7 @@ export const emptyForm = (): UnifiedForm => ({
   seguimiento: "Pendiente",
   entidad: "",
   indicador: "",
-  criterio: "",   
+  criterio: "",    
   fecha_reporte: "",
   estado: "Borrador",
 
@@ -107,6 +107,7 @@ function toNull(v?: string | null) {
   return !v || v.trim() === "" ? null : v;
 }
 
+// AQUÍ ESTABA EL FALTANTE: No se enviaba el seguimiento al actualizar el PLAN
 function buildPlanPayload(base: UnifiedForm) {
   return {
     nombre_entidad: base.nombre_entidad?.trim() ?? "",
@@ -114,7 +115,7 @@ function buildPlanPayload(base: UnifiedForm) {
     ajuste_de_id: base.ajuste_de_id ?? undefined,
     insumo_mejora: toNull(base.insumo_mejora),
     indicador: toNull(base.indicador),
-    criterio: toNull(base.criterio),   
+    criterio: toNull(base.criterio),    
     tipo_accion_mejora: toNull(base.tipo_accion_mejora),
     accion_mejora_planteada: toNull(base.accion_mejora_planteada),
     observacion_informe_calidad: toNull(base.observacion_informe_calidad),
@@ -125,6 +126,9 @@ function buildPlanPayload(base: UnifiedForm) {
     observacion_calidad: toNull(base.plan_observacion_calidad),
     aprobado_evaluador: toNull((base as any).aprobado_evaluador as any),
     estado: base.estado ?? "Borrador",
+    
+    // CORRECCIÓN CRÍTICA: Guardar el estado del seguimiento también en el Plan
+    seguimiento: base.seguimiento ?? "Pendiente",
   };
 }
 
@@ -215,6 +219,7 @@ export function useSeguimientos() {
       estado: "Borrador",
       indicador: toNull(indicadorBase),
       criterio: toNull(criterioBase ?? ""),
+      seguimiento: "Pendiente", // Inicializar en pendiente
     };
 
     const accionLimpia = (accion || "").trim();
@@ -227,21 +232,16 @@ export function useSeguimientos() {
       body: JSON.stringify(payload),
     });
 
-    // En frontend lo tratamos como plan con indicador + estado Borrador
     const createdWithIndicador: Plan = {
       ...created,
       indicador: created.indicador ?? indicadorBase,
       criterio: created.criterio ?? criterioBase,
       estado: created.estado ?? "Borrador",
+      seguimiento: "Pendiente",
     };
 
-    // 1. Agregamos a la lista visual
     setPlans((prev) => [createdWithIndicador, ...prev]);
-    
-    // 2. Marcamos como activo (Amarillo)
     setActivePlanId(createdWithIndicador.id);
-    
-    // 3.  Forzamos la carga del formulario inmediatamente
     setForm({
         ...emptyForm(),
         plan_id: createdWithIndicador.id,
@@ -253,10 +253,7 @@ export function useSeguimientos() {
         criterio: createdWithIndicador.criterio ?? "",
         _original_seguimiento: "Pendiente"
     });
-    
-    // (es un plan nuevo, no tiene seguimientos)
     setChildren([]);
-
     return createdWithIndicador;
   }
 
@@ -290,7 +287,6 @@ export function useSeguimientos() {
     try {
       const refreshed: Plan = await api(`/seguimiento/${plan.id}`);
       plan = { ...plan, ...refreshed };
-      setPlans((prev) => prev.map((p) => (p.id === plan!.id ? plan! : p)));
     } catch (e) { console.warn("useSeguimientos: no se pudo refrescar plan", e); }
 
     setActivePlanId(plan.id);
@@ -310,9 +306,11 @@ export function useSeguimientos() {
 
     setChildren(safeSegs);
 
+    // Actualizar estado en la lista para que no desaparezca al filtrar
     const first = segs[0];
     const realStatus = first?.seguimiento ?? plan.seguimiento ?? "Pendiente";
     setPlans((prev) => prev.map((p) => (p.id === plan!.id ? { ...plan!, seguimiento: realStatus } : p)));
+
     const savedByEntidad =
       !!actorEmailLower &&
       first &&
@@ -338,8 +336,6 @@ export function useSeguimientos() {
       criterio: (first as any)?.criterio ?? (plan as any).criterio ?? "",
       aprobado_evaluador: (plan as any).aprobado_evaluador ?? (first as any)?.aprobado_evaluador ?? "",
       _saved_by_entidad: savedByEntidad,
-      
-      // Guardamos el estado original
       _original_seguimiento: first?.seguimiento ?? (plan as any).seguimiento ?? "Pendiente",
     });
   }
@@ -378,6 +374,7 @@ export function useSeguimientos() {
       indicador: form.indicador ?? (created as any).indicador ?? "",
       criterio: form.criterio ?? (created as any).criterio ?? "",
       estado: "Borrador",
+      seguimiento: "Pendiente",
       observacion_informe_calidad: form.observacion_informe_calidad ?? (created as any).observacion_informe_calidad ?? "",
       aprobado_evaluador: (created as any).aprobado_evaluador ?? (form as any).aprobado_evaluador ?? null,
     };
@@ -431,6 +428,9 @@ export function useSeguimientos() {
       return null;
     }
     const planId = await ensurePlanExists();
+    
+    // Aquí es donde se construye el payload para el Plan
+    // Ahora incluye el campo 'seguimiento' para que la DB se actualice
     const planPayload = buildPlanPayload(base);
 
     if (planId) {
@@ -451,8 +451,6 @@ export function useSeguimientos() {
         observacion_informe_calidad: base.observacion_informe_calidad ?? prev.observacion_informe_calidad ?? "",
         aprobado_evaluador: (base as any).aprobado_evaluador ?? prev.aprobado_evaluador ?? null,
         plan_observacion_calidad: base.plan_observacion_calidad ?? prev.plan_observacion_calidad ?? null,
-        
-        // Actualizamos original
         _original_seguimiento: base.seguimiento ?? prev.seguimiento ?? "Pendiente",
       }));
       setPlanMissingKeys([]);
@@ -475,7 +473,6 @@ export function useSeguimientos() {
                 observacion_informe_calidad: base.observacion_informe_calidad ?? p.observacion_informe_calidad ?? null,
                 aprobado_evaluador: (base as any).aprobado_evaluador ?? (p as any).aprobado_evaluador ?? null,
                 observacion_calidad: base.plan_observacion_calidad ?? (p as any).observacion_calidad ?? null,
-                
                 seguimiento: base.seguimiento ?? p.seguimiento
               }
             : p
@@ -533,8 +530,6 @@ export function useSeguimientos() {
       aprobado_evaluador: (base as any).aprobado_evaluador ?? prev.aprobado_evaluador ?? null,
       plan_observacion_calidad: base.plan_observacion_calidad ?? prev.plan_observacion_calidad ?? null,
       _saved_by_entidad: prev._saved_by_entidad || (isEntidad && !!actorEmailLower && ((saved as any).updated_by_email || "").toString().trim().toLowerCase() === actorEmailLower && !!(saved.descripcion_actividades || base.descripcion_actividades || "").trim()),
-      
-      // Actualizamos original
       _original_seguimiento: base.seguimiento ?? prev.seguimiento ?? "Pendiente",
     }));
     setPlanMissingKeys([]);
@@ -557,7 +552,6 @@ export function useSeguimientos() {
               observacion_informe_calidad: base.observacion_informe_calidad ?? p.observacion_informe_calidad ?? null,
               aprobado_evaluador: (base as any).aprobado_evaluador ?? (p as any).aprobado_evaluador ?? null,
               observacion_calidad: base.plan_observacion_calidad ?? (p as any).observacion_calidad ?? null,
-              
               seguimiento: base.seguimiento || p.seguimiento || "Pendiente"
             }
           : p
@@ -682,7 +676,6 @@ export function useSeguimientos() {
       indicador: child.indicador ?? prev.indicador ?? "",
       _saved_by_entidad: savedByEntidad,
       plan_observacion_calidad: prev.plan_observacion_calidad ?? null,
-      
       _original_seguimiento: child.seguimiento ?? "Pendiente",
     }));
   }
@@ -726,57 +719,39 @@ export function useSeguimientos() {
         console.error(`useSeguimientos: error cargando seguimientos para plan ${plan.id}`, e);
       }
 
-      // 1. Normalizamos los seguimientos existentes
-      // Usamos 'any' en el map para permitir flexibilidad al agregar campos extra que no están en el tipo Seguimiento estricto
       let normalized = segs.map((s) => ({
         ...s,
         entidad: s.entidad ?? plan.nombre_entidad,
-        
-        // Heredar del padre (Plan)
         observacion_informe_calidad: s.observacion_informe_calidad ?? plan.observacion_informe_calidad ?? null,
         indicador: s.indicador ?? plan.indicador ?? null,
         criterio: s.criterio ?? plan.criterio ?? null,
         insumo_mejora: s.insumo_mejora ?? plan.insumo_mejora ?? null,
         tipo_accion_mejora: s.tipo_accion_mejora ?? plan.tipo_accion_mejora ?? null,
         accion_mejora_planteada: s.accion_mejora_planteada ?? plan.accion_mejora_planteada ?? null,
-        
-        // <--- CAMPOS QUE FALTABAN EN EL OBJETO VIRTUAL --->
         plan_descripcion_actividades: plan.descripcion_actividades ?? null,
         plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? null,
-        // --------------------------------------------------
-
         aprobado_evaluador: (plan as any).aprobado_evaluador ?? (s as any).aprobado_evaluador ?? null,
       }));
 
-      // 2. Si no hay seguimientos, creamos uno "virtual" con la misma estructura
       if (normalized.length === 0) {
         normalized = [{
-          id: -1, // ID ficticio
+          id: -1, 
           plan_id: plan.id,
           entidad: plan.nombre_entidad,
-          
-          // Llenamos SOLO los datos del PLAN
           observacion_informe_calidad: plan.observacion_informe_calidad ?? null,
           indicador: plan.indicador ?? null,
           criterio: plan.criterio ?? null,
           insumo_mejora: plan.insumo_mejora ?? null,
           tipo_accion_mejora: plan.tipo_accion_mejora ?? null,
           accion_mejora_planteada: plan.accion_mejora_planteada ?? null,
-          
-          // <--- AQUI AGREGAMOS LAS PROPIEDADES FALTANTES --->
           plan_descripcion_actividades: plan.descripcion_actividades ?? null,
           plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? null,
-          // --------------------------------------------------
-          
-          // Datos propios del seguimiento van vacíos
           descripcion_actividades: "", 
           evidencia_cumplimiento: "",
           fecha_reporte: null,
-          
-          // Estado inicial
           seguimiento: "Pendiente", 
           aprobado_evaluador: (plan as any).aprobado_evaluador ?? null,
-        } as any]; // Usamos 'as any' para evitar conflictos estrictos de tipos en el objeto virtual
+        } as any]; 
       }
 
       results.push({ plan, seguimientos: normalized });
