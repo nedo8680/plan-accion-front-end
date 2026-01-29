@@ -441,7 +441,7 @@ export default function SeguimientoForm({
 
             <p className="mt-1 text-xs text-gray-500">
               {hasPlanPersisted
-                ? "El indicador de este plan ya está definido y no puede modificarse."
+                ? "El indicador de esta acción ya está definido y no puede modificarse."
                 : "Los indicadores que ya tienen un plan asociado aparecen deshabilitados para nuevos planes."}
             </p>
           </div>

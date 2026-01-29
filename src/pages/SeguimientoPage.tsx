@@ -81,14 +81,14 @@ function ExportPlanButtons({
       {/* Grupo: Exportar ACTUAL (Solo visible si hay plan seleccionado) */}
       {currentPlanData && (
         <div className="flex items-center gap-1">
-          <span className="text-[10px] uppercase font-bold text-blue-700 mr-1">Este Plan:</span>
+          <span className="text-[10px] uppercase font-bold text-blue-700 mr-1">Esta acción:</span>
           <div className="flex rounded-md shadow-sm" role="group">
             <button
               type="button"
               onClick={() => handleExportCurrent("csv")}
               disabled={disabledCurrent}
               className="px-2 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-l-lg hover:bg-blue-50 focus:z-10 focus:ring-1 focus:ring-blue-500"
-              title="Exportar este plan a CSV"
+              title="Exportar esta acción a CSV"
             >
               CSV
             </button>
@@ -97,7 +97,7 @@ function ExportPlanButtons({
               onClick={() => handleExportCurrent("xlsx")}
               disabled={disabledCurrent}
               className="px-2 py-1 text-xs font-medium text-blue-700 bg-white border-t border-b border-blue-200 hover:bg-blue-50 focus:z-10 focus:ring-1 focus:ring-blue-500"
-              title="Exportar este plan a Excel"
+              title="Exportar esta acción a Excel"
             >
               XLSX
             </button>
@@ -106,7 +106,7 @@ function ExportPlanButtons({
               onClick={() => handleExportCurrent("pdf")}
               disabled={disabledCurrent}
               className="px-2 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-r-lg hover:bg-blue-50 focus:z-10 focus:ring-1 focus:ring-blue-500"
-              title="Exportar este plan a PDF"
+              title="Exportar esta acción a PDF"
             >
               PDF
             </button>
