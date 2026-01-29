@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { Plan } from "./useSeguimientos";
 import { BsSortUpAlt, BsSortDown } from "react-icons/bs";
+import { useAuth } from "../../context/AuthContext";
 
 type Props = {
   plans: Plan[];
@@ -48,16 +49,6 @@ function parsePlanDate(raw?: string | null): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// Helper: obtener una fecha "representativa" del plan
-function getPlanDate(p: Plan): Date | null {
-  return (
-    parsePlanDate(p.created_at) ||
-    parsePlanDate((p as any).createdAt) ||
-    parsePlanDate(p.fecha_inicio) ||
-    parsePlanDate(p.fecha_final)
-  );
-}
-
 export default function PlanesSidebar({
   plans,
   activePlanId,
@@ -68,6 +59,7 @@ export default function PlanesSidebar({
   activeEstado,
   activeChildrenCount,
 }: Props) {
+  const { user } = useAuth(); 
   const [q, setQ] = useState("");
 
   //  Filtros de fecha
@@ -77,16 +69,25 @@ export default function PlanesSidebar({
   // Filtro por resultado de evaluación 
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // Estado para el checkbox
+  // Checkbox para mostrar/ocultar finalizados
   const [showFinalized, setShowFinalized] = useState(false);
 
-  // Años disponibles a partir de las fechas de los planes
+  // Años disponibles
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
+    
     for (const p of plans) {
-      const d = getPlanDate(p);
-      if (!d) continue;
-      set.add(d.getFullYear().toString());
+      const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
+      const dEnd = parsePlanDate(p.fecha_final) || dStart; 
+
+      if (!dStart) continue;
+
+      const yStart = dStart.getUTCFullYear();
+      const yEnd = dEnd ? dEnd.getUTCFullYear() : yStart;
+
+      for (let y = yStart; y <= yEnd; y++) {
+        set.add(y.toString());
+      }
     }
     return Array.from(set).sort();
   }, [plans]);
@@ -94,9 +95,17 @@ export default function PlanesSidebar({
   const filtered = useMemo(() => {
     const hasDateFilter = !!year || !!month;
     const hasEvalFilter = !!evaluacionFilter; 
+    
+    const userRole = (user?.role as any) || "";
+    const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
     return plans.filter((p) => {
-      // --- Filtro por texto ---
+      // 1. Ocultar Borradores al Auditor
+      if (isAuditor && p.estado === "Borrador") {
+        return false; 
+      }
+
+      // 2. Filtro por texto
       const s = q.trim().toLowerCase();
       if (s) {
         const matchesText =
@@ -105,38 +114,60 @@ export default function PlanesSidebar({
         if (!matchesText) return false;
       }
 
-      // --- Filtro por fecha ---
+      // 3. Filtro por fecha (Rango)
       if (hasDateFilter) {
-        const d = getPlanDate(p);
-        if (!d) return false; // si hay filtro de fecha y el plan no tiene fecha, se excluye
+        const dStart = parsePlanDate(p.fecha_inicio);
+        const dEnd = parsePlanDate(p.fecha_final);
 
-        const y = d.getFullYear().toString();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
+        if (!dStart) return false;
 
-        if (year && y !== year) return false;
-        if (month && m !== month) return false;
+        const safeEnd = dEnd || dStart;
+        const startY = dStart.getUTCFullYear();
+        const startM = dStart.getUTCMonth() + 1; 
+        const endY = safeEnd.getUTCFullYear();
+        const endM = safeEnd.getUTCMonth() + 1; 
+
+        const planStartVal = startY * 12 + startM;
+        const planEndVal = endY * 12 + endM;
+
+        if (year) {
+            const selYear = parseInt(year);
+            if (month) {
+                const selMonth = parseInt(month);
+                const selectedVal = selYear * 12 + selMonth;
+                if (selectedVal < planStartVal || selectedVal > planEndVal) {
+                    return false;
+                }
+            } else {
+                if (selYear < startY || selYear > endY) {
+                    return false;
+                }
+            }
+        }
       }
 
-      // Filtro por Resultado Evaluación
+      // 4. Filtro por Resultado Evaluación
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
             if (estadoReal !== "") return false;
         } else {
-            // Filtro por "Aprobado" o "Rechazado"
             if (estadoReal !== evaluacionFilter) return false;
         }
       }
 
-      // Si "Mostrar finalizados" está DESMARCADO, ocultar los que digan Finalizado
-      const status = (p.seguimiento || "").trim(); // Usar trim para evitar errores de espacios
-      if (!showFinalized && status === "Finalizado") {
+      // 5. FILTRO FINALIZADOS (CORREGIDO)
+      // Normalizamos a minúsculas para asegurar que detecte "finalizado", "Finalizado", etc.
+      const statusLower = (p.seguimiento || "").trim().toLowerCase();
+      
+      // Si el check está apagado (!showFinalized) Y el estado es finalizado -> OCULTAR
+      if (!showFinalized && statusLower === "finalizado") {
          return false;
       }
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter, showFinalized]);
+  }, [plans, q, year, month, evaluacionFilter, showFinalized, user]); 
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -267,7 +298,9 @@ export default function PlanesSidebar({
 
             const isDraftSidebar = estadoPlan === "Borrador";
 
-            const isFinalizado = p.seguimiento === "Finalizado";
+            // Calculamos badge finalizado (insensible a mayúsculas)
+            const statusLower = (p.seguimiento || "").trim().toLowerCase();
+            const isFinalizado = statusLower === "finalizado";
 
             return (
               <li key={p.id}>
@@ -279,6 +312,7 @@ export default function PlanesSidebar({
                     active
                       ? "bg-yellow-400 text-gray-800"
                       : "hover:bg-gray-100 text-gray-800",
+                    isFinalizado && !active ? "opacity-60" : ""
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -296,8 +330,8 @@ export default function PlanesSidebar({
                         {estadoPlan}
                       </span>
                     )}
-                  
-               {/* Badge para finalizados */}
+                    
+                    {/* Badge para finalizados */}
                     {!active && isFinalizado && (
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
                             Finalizado
