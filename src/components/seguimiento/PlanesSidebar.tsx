@@ -49,6 +49,16 @@ function parsePlanDate(raw?: string | null): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
+// Helper: obtener una fecha "representativa" del plan
+function getPlanDate(p: Plan): Date | null {
+  return (
+    parsePlanDate(p.created_at) ||
+    parsePlanDate((p as any).createdAt) ||
+    parsePlanDate(p.fecha_inicio) ||
+    parsePlanDate(p.fecha_final)
+  );
+}
+
 export default function PlanesSidebar({
   plans,
   activePlanId,
@@ -69,7 +79,7 @@ export default function PlanesSidebar({
   // Filtro por resultado de evaluación (Plan)
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // <--- 1. NUEVO: Filtro por Estado de Seguimiento (Desplegable) --->
+  // Filtro por Estado de Seguimiento (Desplegable)
   const [seguimientoFilter, setSeguimientoFilter] = useState("");
 
   // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
@@ -77,6 +87,7 @@ export default function PlanesSidebar({
     const set = new Set<string>();
     
     for (const p of plans) {
+      // Usamos fecha de inicio y final para poblar el select
       const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
       const dEnd = parsePlanDate(p.fecha_final) || dStart; 
 
@@ -158,18 +169,21 @@ export default function PlanesSidebar({
         }
       }
 
-      // <--- 2. NUEVO LOGICA DE FILTRO: Estado del Seguimiento --->
-      // Si hay algo seleccionado en el dropdown, comparamos. Si está vacío ("Todos"), pasa todo.
+      // <--- CORRECCIÓN AQUÍ: Comparación insensible a mayúsculas --->
       if (seguimientoFilter) {
-        const status = (p.seguimiento || "Pendiente").trim();
-        if (status !== seguimientoFilter) {
+        // Obtenemos el estado y lo pasamos a minúsculas
+        const status = (p.seguimiento || "Pendiente").trim().toLowerCase();
+        // El filtro también a minúsculas
+        const filter = seguimientoFilter.trim().toLowerCase();
+        
+        if (status !== filter) {
             return false;
         }
       }
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]); // <--- Agregamos seguimientoFilter
+  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]);
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -268,7 +282,7 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* <--- 3. NUEVO SELECT: Estado del Seguimiento ---> */}
+      {/* Filtro Estado del Seguimiento */}
       <div className="mb-2">
         <select
           className="w-full rounded-md border px-2 py-1 text-sm"
@@ -281,7 +295,6 @@ export default function PlanesSidebar({
           <option value="Finalizado">Finalizado</option>
         </select>
       </div>
-      {/* --------------------------------------------------- */}
 
       <div className="max-h-[70vh] overflow-auto pr-1">
         {filtered.length === 0 && (
