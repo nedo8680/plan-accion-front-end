@@ -76,11 +76,12 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación (Plan)
+  // Filtro 1: Evaluación del Plan (Aprobado/Rechazado)
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // Checkbox para mostrar/ocultar finalizados
-  const [showFinalized, setShowFinalized] = useState(false);
+  // Filtro 2: Estado del Seguimiento (Pendiente/En progreso/Finalizado)
+  // Reemplaza al checkbox anterior
+  const [seguimientoFilter, setSeguimientoFilter] = useState(""); 
 
   // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
   const yearsAvailable = useMemo(() => {
@@ -106,16 +107,17 @@ export default function PlanesSidebar({
     const hasDateFilter = !!year || !!month;
     const hasEvalFilter = !!evaluacionFilter; 
     
+    // Casting seguro para evitar error de tipos
     const userRole = (user?.role as any) || "";
     const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
     return plans.filter((p) => {
-      // 1. SEGURIDAD: Ocultar Borradores al Auditor
+      // 1. REGLA DE SEGURIDAD: Los auditores NO ven Borradores
       if (isAuditor && p.estado === "Borrador") {
         return false; 
       }
 
-      // 2. Filtro Texto
+      // 2. Filtro por texto
       const s = q.trim().toLowerCase();
       if (s) {
         const matchesText =
@@ -124,7 +126,7 @@ export default function PlanesSidebar({
         if (!matchesText) return false;
       }
 
-      // 3. Filtro Fecha (Rango + UTC)
+      // 3. Filtro por fecha (RANGO)
       if (hasDateFilter) {
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
@@ -152,7 +154,7 @@ export default function PlanesSidebar({
         }
       }
 
-      // 4. Filtro Evaluación
+      // 4. Filtro por Resultado Evaluación (Plan)
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
@@ -162,20 +164,23 @@ export default function PlanesSidebar({
         }
       }
 
-      // 5. FILTRO CHECKBOX FINALIZADOS (SOLUCIÓN DEFINITIVA)
-      // Normalizamos a minúsculas: "Finalizado" -> "finalizado"
-      const statusLower = (p.seguimiento || "").trim().toLowerCase();
-      
-      // Si el usuario NO quiere ver finalizados (checkbox vacío)
-      // Y el plan ES finalizado...
-      // -> Lo sacamos de la lista (return false)
-      if (!showFinalized && statusLower === "finalizado") {
-         return false;
+      // 5. FILTRO DE ESTADO DE SEGUIMIENTO (Desplegable)
+      // Si hay algo seleccionado en el dropdown...
+      if (seguimientoFilter) {
+         // Normalizamos a minúsculas para evitar errores (ej: "En Progreso" vs "en progreso")
+         // Si es nulo, asumimos "pendiente" por defecto
+         const estadoActual = (p.seguimiento || "Pendiente").trim().toLowerCase();
+         const filtroSeleccionado = seguimientoFilter.trim().toLowerCase();
+
+         // Si no coinciden, ocultamos el plan
+         if (estadoActual !== filtroSeleccionado) {
+             return false;
+         }
       }
 
       return true;
     });
-  }, [plans, q, year, month, evaluacionFilter, showFinalized, user]); 
+  }, [plans, q, year, month, evaluacionFilter, seguimientoFilter, user]); 
 
   return (
     <aside className="sticky top-4 h-fit rounded-xl border bg-white p-3 shadow-sm space-y-3">
@@ -220,7 +225,9 @@ export default function PlanesSidebar({
         >
           <option value="">Año</option>
           {yearsAvailable.map((y) => (
-            <option key={y} value={y}>{y}</option>
+            <option key={y} value={y}>
+              {y}
+            </option>
           ))}
         </select>
 
@@ -237,12 +244,14 @@ export default function PlanesSidebar({
             { value: "07", label: "Julio" }, { value: "08", label: "Agosto" }, { value: "09", label: "Septiembre" },
             { value: "10", label: "Octubre" }, { value: "11", label: "Noviembre" }, { value: "12", label: "Diciembre" },
           ].map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
           ))}
         </select>
       </div>
 
-      {/* Filtro de Estado de Evaluación */}
+      {/* Filtro de Estado de Evaluación del Plan */}
       <div className="mb-2">
         <select
             className="w-full rounded-md border px-2 py-1 text-sm"
@@ -256,18 +265,18 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* Checkbox para mostrar/ocultar finalizados */}
-      <div className="mb-2 flex items-center gap-2 px-1">
-        <input
-          type="checkbox"
-          id="chkFinalizados"
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          checked={showFinalized}
-          onChange={(e) => setShowFinalized(e.target.checked)}
-        />
-        <label htmlFor="chkFinalizados" className="text-xs text-gray-700 cursor-pointer select-none">
-          Mostrar seguimientos finalizados
-        </label>
+      {/* <--- NUEVO SELECT: Estado del Seguimiento ---> */}
+      <div className="mb-2">
+        <select
+          className="w-full rounded-md border px-2 py-1 text-sm"
+          value={seguimientoFilter}
+          onChange={(e) => setSeguimientoFilter(e.target.value)}
+        >
+          <option value="">-- Estado seguimiento del plan --</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="En progreso">En progreso</option>
+          <option value="Finalizado">Finalizado</option>
+        </select>
       </div>
       {/* --------------------------------------------------- */}
 
@@ -283,8 +292,8 @@ export default function PlanesSidebar({
             const active = p.id === activePlanId;
             const estadoPlan = active && activeEstado != null ? activeEstado : p.estado ?? undefined;
             const isDraftSidebar = estadoPlan === "Borrador";
-
-            // Calculamos el badge insensible a mayúsculas
+            
+            // Lógica para badge finalizado (insensible a mayúsculas)
             const statusLower = (p.seguimiento || "").trim().toLowerCase();
             const isFinalizado = statusLower === "finalizado";
 
