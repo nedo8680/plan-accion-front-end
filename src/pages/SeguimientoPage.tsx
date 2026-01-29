@@ -1,11 +1,11 @@
 import React from "react";
 import Header from "../components/Header";
 import PageBg from "../components/PageBackground";
-import { FaEraser, FaFileCsv, FaFileExcel, FaFilePdf } from "react-icons/fa"; 
+import { FaEraser } from "react-icons/fa";
 import SeguimientoForm from "../components/seguimiento/SeguimientoForm";
 import { useSeguimientos, type Plan, type Seguimiento } from "../components/seguimiento/useSeguimientos";
 import { useAuth } from "../context/AuthContext";
-import { FiSend, FiAlertCircle, FiDownload } from "react-icons/fi";
+import { FiSend, FiAlertCircle } from "react-icons/fi";
 import { hasAuditorAccess } from "../lib/auth";
 
 import SeguimientoTabs from "../components/seguimiento/SeguimientoTabs";
@@ -142,14 +142,19 @@ export default function SeguimientoPage() {
 
   const bloqueoGlobalPorFinalizado = existeSeguimientoFinalizado && !isAdmin;
 
-  // <--- 1. LÓGICA DE BLOQUEO POR REVISIÓN DEL AUDITOR --->
-  // Si soy entidad y este seguimiento ya tiene una observación de calidad, se considera "devuelto" y no debo editarlo.
-  const bloqueoPorObservacion = isEntidad && !!(currentAny?.observacion_calidad || "").trim();
+  // <--- 1. MODIFICACIÓN: Bloqueo si hay observación (aplica a Entidad Y Evaluador) --->
+  const existeObservacionCalidad = !!(currentAny?.observacion_calidad || "").trim();
+  
+  // Bloqueo estricto para la entidad (no puede editar nada)
+  const bloqueoTotalEntidad = isEntidad && existeObservacionCalidad;
+
+  // Bloqueo del selector de estado (aplica a ambos si ya se devolvió)
+  const bloqueoSelectorEstado = existeObservacionCalidad;
 
   const entidadNoPuedeEnviar =
     (isEntidad && isSeguimientoActual && estadoSeguimientoActual !== "Pendiente") ||
     bloqueoGlobalPorFinalizado ||
-    bloqueoPorObservacion; // <--- Agregamos esto aquí para bloquear el botón Enviar
+    bloqueoTotalEntidad; 
 
   const activeChild = children[pagerIndex] ?? null;
   const activeChildId = activeChild?.id;
@@ -334,17 +339,19 @@ export default function SeguimientoPage() {
               <SeguimientoForm
                 value={current as any}
                 onChange={updateLocal as any}
-                // <--- 2. APLICAMOS EL BLOQUEO POR OBSERVACIÓN AQUÍ --->
+                // <--- 2. APLICACIÓN DE LOS BLOQUEOS --->
                 readOnlyFields={{
                   observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado,
                   aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
                   plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
                   
-                  // Si hay observación del auditor, la entidad NO puede editar estos campos
-                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoPorObservacion,
-                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoPorObservacion,
-                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoPorObservacion,
-                  seguimiento: bloqueoGlobalPorFinalizado || bloqueoPorObservacion,
+                  // La entidad no puede editar contenido si fue devuelto
+                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
+                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
+                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
+                  
+                  // NADIE puede cambiar el estado si ya tiene observación (se considera devuelto/histórico)
+                  seguimiento: bloqueoGlobalPorFinalizado || bloqueoSelectorEstado,
                 }}
                 focusRef={formFocusRef}
                 indicadoresApi={indicadoresApi}   
@@ -401,10 +408,9 @@ export default function SeguimientoPage() {
                     <button
                       type="button"
                       onClick={handleEnviar}
-                      // <--- 3. EL BOTÓN TAMBIÉN SE BLOQUEA --->
                       disabled={!isDuplicableCurrent || sending || entidadNoPuedeEnviar}
                       className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
-                      title={entidadNoPuedeEnviar ? "No se puede modificar (ya enviado, finalizado o devuelto)." : "Guardar y enviar"}
+                      title={entidadNoPuedeEnviar ? "No se puede modificar." : "Guardar y enviar"}
                     >
                       <FiSend /> {sending ? "Enviando..." : "Enviar"}
                     </button>
