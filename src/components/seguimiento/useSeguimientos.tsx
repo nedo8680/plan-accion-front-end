@@ -107,7 +107,6 @@ function toNull(v?: string | null) {
   return !v || v.trim() === "" ? null : v;
 }
 
-// AQUÍ ESTABA EL FALTANTE: No se enviaba el seguimiento al actualizar el PLAN
 function buildPlanPayload(base: UnifiedForm) {
   return {
     nombre_entidad: base.nombre_entidad?.trim() ?? "",
@@ -127,7 +126,7 @@ function buildPlanPayload(base: UnifiedForm) {
     aprobado_evaluador: toNull((base as any).aprobado_evaluador as any),
     estado: base.estado ?? "Borrador",
     
-    // CORRECCIÓN CRÍTICA: Guardar el estado del seguimiento también en el Plan
+    // Aseguramos que el estado del seguimiento se guarde en el Plan padre
     seguimiento: base.seguimiento ?? "Pendiente",
   };
 }
@@ -219,7 +218,7 @@ export function useSeguimientos() {
       estado: "Borrador",
       indicador: toNull(indicadorBase),
       criterio: toNull(criterioBase ?? ""),
-      seguimiento: "Pendiente", // Inicializar en pendiente
+      seguimiento: "Pendiente",
     };
 
     const accionLimpia = (accion || "").trim();
@@ -296,6 +295,10 @@ export function useSeguimientos() {
         ? plan.seguimientos
         : await api(`/seguimiento/${plan.id}/seguimiento`);
     
+    // CORRECCIÓN VITAL: Ordenamos por ID descendente para obtener el MÁS NUEVO primero.
+    // Esto asegura que 'latest' sea realmente el último seguimiento creado.
+    const sortedSegs = [...segs].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+
     const safeSegs: Seguimiento[] = segs.length
       ? segs.map((s) => ({
           ...s,
@@ -304,21 +307,23 @@ export function useSeguimientos() {
         }))
       : [];
 
-    setChildren(safeSegs);
+    setChildren(safeSegs); // Mantenemos el orden original para el timeline (generalmente ascendente)
 
-    // Actualizar estado en la lista para que no desaparezca al filtrar
-    const first = segs[0];
-    const realStatus = first?.seguimiento ?? plan.seguimiento ?? "Pendiente";
+    // Usamos 'sortedSegs[0]' que es el más nuevo para determinar el estado actual
+    const latest = sortedSegs[0];
+    const realStatus = latest?.seguimiento ?? plan.seguimiento ?? "Pendiente";
+
+    // Actualizamos el plan en la lista con el estado CALCULADO
     setPlans((prev) => prev.map((p) => (p.id === plan!.id ? { ...plan!, seguimiento: realStatus } : p)));
 
     const savedByEntidad =
       !!actorEmailLower &&
-      first &&
-      ((first as any).updated_by_email || "").toString().trim().toLowerCase() === actorEmailLower &&
-      !!(first.descripcion_actividades || "").trim();
+      latest &&
+      ((latest as any).updated_by_email || "").toString().trim().toLowerCase() === actorEmailLower &&
+      !!(latest.descripcion_actividades || "").trim();
 
     setForm({
-      ...(first ?? emptyForm()),
+      ...(latest ?? emptyForm()), // Cargamos en el formulario el MÁS NUEVO
       plan_id: plan.id,
       nombre_entidad: plan.nombre_entidad,
       enlace_entidad: plan.enlace_entidad ?? "",
@@ -329,14 +334,15 @@ export function useSeguimientos() {
       plan_evidencia_cumplimiento: plan.evidencia_cumplimiento ?? "",
       tipo_accion_mejora: plan.tipo_accion_mejora ?? "",
       insumo_mejora: plan.insumo_mejora ?? "",
-      observacion_informe_calidad: plan.observacion_informe_calidad ?? first?.observacion_informe_calidad ?? "",
+      observacion_informe_calidad: plan.observacion_informe_calidad ?? latest?.observacion_informe_calidad ?? "",
       plan_observacion_calidad: plan.observacion_calidad ?? "",
-      accion_mejora_planteada: plan.accion_mejora_planteada ?? first?.accion_mejora_planteada ?? "",
-      indicador: first?.indicador ?? (plan as any).indicador ?? "", 
-      criterio: (first as any)?.criterio ?? (plan as any).criterio ?? "",
-      aprobado_evaluador: (plan as any).aprobado_evaluador ?? (first as any)?.aprobado_evaluador ?? "",
+      accion_mejora_planteada: plan.accion_mejora_planteada ?? latest?.accion_mejora_planteada ?? "",
+      indicador: latest?.indicador ?? (plan as any).indicador ?? "", 
+      criterio: (latest as any)?.criterio ?? (plan as any).criterio ?? "",
+      aprobado_evaluador: (plan as any).aprobado_evaluador ?? (latest as any)?.aprobado_evaluador ?? "",
       _saved_by_entidad: savedByEntidad,
-      _original_seguimiento: first?.seguimiento ?? (plan as any).seguimiento ?? "Pendiente",
+      
+      _original_seguimiento: latest?.seguimiento ?? (plan as any).seguimiento ?? "Pendiente",
     });
   }
 
@@ -428,9 +434,6 @@ export function useSeguimientos() {
       return null;
     }
     const planId = await ensurePlanExists();
-    
-    // Aquí es donde se construye el payload para el Plan
-    // Ahora incluye el campo 'seguimiento' para que la DB se actualice
     const planPayload = buildPlanPayload(base);
 
     if (planId) {
@@ -451,6 +454,7 @@ export function useSeguimientos() {
         observacion_informe_calidad: base.observacion_informe_calidad ?? prev.observacion_informe_calidad ?? "",
         aprobado_evaluador: (base as any).aprobado_evaluador ?? prev.aprobado_evaluador ?? null,
         plan_observacion_calidad: base.plan_observacion_calidad ?? prev.plan_observacion_calidad ?? null,
+        
         _original_seguimiento: base.seguimiento ?? prev.seguimiento ?? "Pendiente",
       }));
       setPlanMissingKeys([]);
@@ -473,6 +477,7 @@ export function useSeguimientos() {
                 observacion_informe_calidad: base.observacion_informe_calidad ?? p.observacion_informe_calidad ?? null,
                 aprobado_evaluador: (base as any).aprobado_evaluador ?? (p as any).aprobado_evaluador ?? null,
                 observacion_calidad: base.plan_observacion_calidad ?? (p as any).observacion_calidad ?? null,
+                
                 seguimiento: base.seguimiento ?? p.seguimiento
               }
             : p
@@ -552,6 +557,7 @@ export function useSeguimientos() {
               observacion_informe_calidad: base.observacion_informe_calidad ?? p.observacion_informe_calidad ?? null,
               aprobado_evaluador: (base as any).aprobado_evaluador ?? (p as any).aprobado_evaluador ?? null,
               observacion_calidad: base.plan_observacion_calidad ?? (p as any).observacion_calidad ?? null,
+              
               seguimiento: base.seguimiento || p.seguimiento || "Pendiente"
             }
           : p
