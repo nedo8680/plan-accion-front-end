@@ -49,6 +49,16 @@ function parsePlanDate(raw?: string | null): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
+// Helper: obtener una fecha "representativa" del plan
+function getPlanDate(p: Plan): Date | null {
+  return (
+    parsePlanDate(p.created_at) ||
+    parsePlanDate((p as any).createdAt) ||
+    parsePlanDate(p.fecha_inicio) ||
+    parsePlanDate(p.fecha_final)
+  );
+}
+
 export default function PlanesSidebar({
   plans,
   activePlanId,
@@ -66,13 +76,13 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación 
+  // Filtro por resultado de evaluación (Plan)
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
   // Checkbox para mostrar/ocultar finalizados
   const [showFinalized, setShowFinalized] = useState(false);
 
-  // Años disponibles
+  // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
   const yearsAvailable = useMemo(() => {
     const set = new Set<string>();
     
@@ -100,12 +110,12 @@ export default function PlanesSidebar({
     const isAuditor = userRole === "auditor" || userRole === "evaluador";
 
     return plans.filter((p) => {
-      // 1. Ocultar Borradores al Auditor
+      // 1. SEGURIDAD: Ocultar Borradores al Auditor
       if (isAuditor && p.estado === "Borrador") {
         return false; 
       }
 
-      // 2. Filtro por texto
+      // 2. Filtro Texto
       const s = q.trim().toLowerCase();
       if (s) {
         const matchesText =
@@ -114,7 +124,7 @@ export default function PlanesSidebar({
         if (!matchesText) return false;
       }
 
-      // 3. Filtro por fecha (Rango)
+      // 3. Filtro Fecha (Rango + UTC)
       if (hasDateFilter) {
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
@@ -135,18 +145,14 @@ export default function PlanesSidebar({
             if (month) {
                 const selMonth = parseInt(month);
                 const selectedVal = selYear * 12 + selMonth;
-                if (selectedVal < planStartVal || selectedVal > planEndVal) {
-                    return false;
-                }
+                if (selectedVal < planStartVal || selectedVal > planEndVal) return false;
             } else {
-                if (selYear < startY || selYear > endY) {
-                    return false;
-                }
+                if (selYear < startY || selYear > endY) return false;
             }
         }
       }
 
-      // 4. Filtro por Resultado Evaluación
+      // 4. Filtro Evaluación
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
@@ -156,11 +162,13 @@ export default function PlanesSidebar({
         }
       }
 
-      // 5. FILTRO FINALIZADOS (CORREGIDO)
-      // Normalizamos a minúsculas para asegurar que detecte "finalizado", "Finalizado", etc.
+      // 5. FILTRO CHECKBOX FINALIZADOS (SOLUCIÓN DEFINITIVA)
+      // Normalizamos a minúsculas: "Finalizado" -> "finalizado"
       const statusLower = (p.seguimiento || "").trim().toLowerCase();
       
-      // Si el check está apagado (!showFinalized) Y el estado es finalizado -> OCULTAR
+      // Si el usuario NO quiere ver finalizados (checkbox vacío)
+      // Y el plan ES finalizado...
+      // -> Lo sacamos de la lista (return false)
       if (!showFinalized && statusLower === "finalizado") {
          return false;
       }
@@ -208,15 +216,11 @@ export default function PlanesSidebar({
         <select
           className="rounded-md border px-2 py-1 text-sm"
           value={year}
-          onChange={(e) => {
-            setYear(e.target.value);
-          }}
+          onChange={(e) => setYear(e.target.value)}
         >
           <option value="">Año</option>
           {yearsAvailable.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
+            <option key={y} value={y}>{y}</option>
           ))}
         </select>
 
@@ -224,30 +228,16 @@ export default function PlanesSidebar({
         <select
           className="rounded-md border px-2 py-1 text-sm"
           value={month}
-          onChange={(e) => {
-            const val = e.target.value;
-            setMonth(val);
-          }}
+          onChange={(e) => setMonth(e.target.value)}
         >
           <option value="">Mes</option>
-
           {[
-            { value: "01", label: "Enero" },
-            { value: "02", label: "Febrero" },
-            { value: "03", label: "Marzo" },
-            { value: "04", label: "Abril" },
-            { value: "05", label: "Mayo" },
-            { value: "06", label: "Junio" },
-            { value: "07", label: "Julio" },
-            { value: "08", label: "Agosto" },
-            { value: "09", label: "Septiembre" },
-            { value: "10", label: "Octubre" },
-            { value: "11", label: "Noviembre" },
-            { value: "12", label: "Diciembre" },
+            { value: "01", label: "Enero" }, { value: "02", label: "Febrero" }, { value: "03", label: "Marzo" },
+            { value: "04", label: "Abril" }, { value: "05", label: "Mayo" }, { value: "06", label: "Junio" },
+            { value: "07", label: "Julio" }, { value: "08", label: "Agosto" }, { value: "09", label: "Septiembre" },
+            { value: "10", label: "Octubre" }, { value: "11", label: "Noviembre" }, { value: "12", label: "Diciembre" },
           ].map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
+            <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
       </div>
@@ -291,14 +281,10 @@ export default function PlanesSidebar({
         <ul className="space-y-1">
           {filtered.map((p) => {
             const active = p.id === activePlanId;
-            const estadoPlan =
-              active && activeEstado != null
-                ? activeEstado
-                : p.estado ?? undefined;
-
+            const estadoPlan = active && activeEstado != null ? activeEstado : p.estado ?? undefined;
             const isDraftSidebar = estadoPlan === "Borrador";
 
-            // Calculamos badge finalizado (insensible a mayúsculas)
+            // Calculamos el badge insensible a mayúsculas
             const statusLower = (p.seguimiento || "").trim().toLowerCase();
             const isFinalizado = statusLower === "finalizado";
 
