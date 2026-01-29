@@ -49,6 +49,16 @@ function parsePlanDate(raw?: string | null): Date | null {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
+// Helper: obtener una fecha "representativa" del plan
+function getPlanDate(p: Plan): Date | null {
+  return (
+    parsePlanDate(p.created_at) ||
+    parsePlanDate((p as any).createdAt) ||
+    parsePlanDate(p.fecha_inicio) ||
+    parsePlanDate(p.fecha_final)
+  );
+}
+
 export default function PlanesSidebar({
   plans,
   activePlanId,
@@ -66,10 +76,10 @@ export default function PlanesSidebar({
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  // Filtro por resultado de evaluación 
+  // Filtro por resultado de evaluación (Plan)
   const [evaluacionFilter, setEvaluacionFilter] = useState("");
 
-  // Estado para el checkbox
+  // <--- RESTAURADO: Checkbox para mostrar/ocultar finalizados --->
   const [showFinalized, setShowFinalized] = useState(false);
 
   // Años disponibles: Calculamos todos los años que tocan los planes (Rango completo)
@@ -79,7 +89,7 @@ export default function PlanesSidebar({
     for (const p of plans) {
       // Usamos fecha de inicio y final para poblar el select
       const dStart = parsePlanDate(p.fecha_inicio) || parsePlanDate(p.created_at) || parsePlanDate((p as any).createdAt);
-      const dEnd = parsePlanDate(p.fecha_final) || dStart; // Si no hay final, asumimos que es el mismo año del inicio
+      const dEnd = parsePlanDate(p.fecha_final) || dStart; 
 
       if (!dStart) continue;
 
@@ -121,41 +131,28 @@ export default function PlanesSidebar({
         const dStart = parsePlanDate(p.fecha_inicio);
         const dEnd = parsePlanDate(p.fecha_final);
 
-        // Si el plan no tiene fecha de inicio, no podemos filtrarlo por rango (o decidimos ocultarlo)
         if (!dStart) return false;
 
-        // Si no tiene fecha final, asumimos que termina el mismo día que inicia (para cerrar el rango)
-        // O podrías asumir 'new Date()' si quieres que cuente como "hasta hoy".
         const safeEnd = dEnd || dStart;
 
-        // Convertimos a UTC Year y Month
         const startY = dStart.getUTCFullYear();
-        const startM = dStart.getUTCMonth() + 1; // 1-12
+        const startM = dStart.getUTCMonth() + 1; 
 
         const endY = safeEnd.getUTCFullYear();
-        const endM = safeEnd.getUTCMonth() + 1; // 1-12
+        const endM = safeEnd.getUTCMonth() + 1; 
 
-        // Para comparar facil: (Año * 12) + Mes. Esto nos da un número lineal de meses.
         const planStartVal = startY * 12 + startM;
         const planEndVal = endY * 12 + endM;
 
-        // Filtro seleccionado
         if (year) {
             const selYear = parseInt(year);
-            
             if (month) {
-                // Filtro Año + Mes
                 const selMonth = parseInt(month);
                 const selectedVal = selYear * 12 + selMonth;
-
-                // CONDICIÓN: ¿El mes seleccionado está dentro del rango del plan?
-                // InicioPlan <= Seleccionado <= FinPlan
                 if (selectedVal < planStartVal || selectedVal > planEndVal) {
                     return false;
                 }
             } else {
-                // Filtro Solo Año
-                // ¿El año seleccionado se solapa con el rango de años del plan?
                 if (selYear < startY || selYear > endY) {
                     return false;
                 }
@@ -163,18 +160,17 @@ export default function PlanesSidebar({
         }
       }
 
-      // Filtro por Resultado Evaluación
+      // Filtro por Resultado Evaluación (Plan)
       if (hasEvalFilter) {
         const estadoReal = p.aprobado_evaluador || ""; 
         if (evaluacionFilter === "Sin evaluar") {
             if (estadoReal !== "") return false;
         } else {
-            // Filtro por "Aprobado" o "Rechazado"
             if (estadoReal !== evaluacionFilter) return false;
         }
       }
 
-      // Si "Mostrar finalizados" está DESMARCADO, ocultar los que digan Finalizado
+      // <--- RESTAURADO: Si "Mostrar finalizados" está DESMARCADO, ocultamos los que dicen "Finalizado" --->
       const status = (p.seguimiento || "").trim();
       if (!showFinalized && status === "Finalizado") {
          return false;
@@ -281,7 +277,7 @@ export default function PlanesSidebar({
         </select>
       </div>
 
-      {/* Checkbox para mostrar/ocultar finalizados */}
+      {/* <--- RESTAURADO: Checkbox para mostrar/ocultar finalizados ---> */}
       <div className="mb-2 flex items-center gap-2 px-1">
         <input
           type="checkbox"
