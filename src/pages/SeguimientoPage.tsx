@@ -341,9 +341,10 @@ export default function SeguimientoPage() {
                 value={current as any}
                 onChange={updateLocal as any}
                 readOnlyFields={{
-                  observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado,
-                  aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
-                  plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado,
+                  // AQUÍ AGREGAMOS isYaFinalizadoEnBD a las observaciones y aprobación
+                  observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
+                  aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
+                  plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   
                   // Entidad bloqueada si hay observación
                   descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
