@@ -19,9 +19,7 @@ import {
   exportAllSeguimientosPDF,
 } from "../components/seguimiento/exporters";
 
-// ─────────────────────────────────────────────────────────────
-// Botonera de exportación
-// ─────────────────────────────────────────────────────────────
+
 function ExportPlanButtons({
   hasData,
   loadAllSeguimientos,
@@ -154,7 +152,7 @@ export default function SeguimientoPage() {
     bloqueoGlobalPorFinalizado ||
     bloqueoTotalEntidad; 
 
-  // Bloqueo total para el botón de guardar
+  // Bloqueo para el botón de guardar
   const formBloqueadoGuardar = entidadNoPuedeEnviar || isYaFinalizadoEnBD;
 
   const activeChild = children[pagerIndex] ?? null;
@@ -341,17 +339,14 @@ export default function SeguimientoPage() {
                 value={current as any}
                 onChange={updateLocal as any}
                 readOnlyFields={{
-                  // AQUÍ AGREGAMOS isYaFinalizadoEnBD a las observaciones y aprobación
                   observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   
-                  // Entidad bloqueada si hay observación
-                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
-                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
-                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
+                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad || (canAudit && !isAdmin),
+                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad || (canAudit && !isAdmin),
+                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad || (canAudit && !isAdmin),
                   
-                  // El estado se bloquea si el form ya se guardó previamente como 'Finalizado'
                   seguimiento: bloqueoGlobalPorFinalizado || bloqueoSelectorEstado || isYaFinalizadoEnBD,
                 }}
                 focusRef={formFocusRef}
@@ -409,7 +404,7 @@ export default function SeguimientoPage() {
                     <button
                       type="button"
                       onClick={handleEnviar}
-                      // BLOQUEO ABSOLUTO DE GUARDADO SI YA ESTÁ FINALIZADO
+                      // BLOQUEO  DE GUARDADO SI YA ESTÁ FINALIZADO
                       disabled={!isDuplicableCurrent || sending || formBloqueadoGuardar}
                       className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
                       title={formBloqueadoGuardar ? "No se puede modificar." : "Guardar y enviar"}
