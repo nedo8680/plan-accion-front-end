@@ -19,7 +19,9 @@ import {
   exportAllSeguimientosPDF,
 } from "../components/seguimiento/exporters";
 
-
+// ─────────────────────────────────────────────────────────────
+// Botonera de exportación
+// ─────────────────────────────────────────────────────────────
 function ExportPlanButtons({
   hasData,
   loadAllSeguimientos,
@@ -121,7 +123,6 @@ export default function SeguimientoPage() {
   const currentSeguimientoId = isSeguimientoActual ? currentAny?.id : undefined;
   const estadoPlanActual: string | null = (currentAny?.estado as string) ?? null; 
   
-  // <--- LÓGICA DE BLOQUEO --->
   const estadoRealEnBD = (currentAny?._original_seguimiento || "").toLowerCase();
   const isYaFinalizadoEnBD = estadoRealEnBD === "finalizado";
 
@@ -152,7 +153,6 @@ export default function SeguimientoPage() {
     bloqueoGlobalPorFinalizado ||
     bloqueoTotalEntidad; 
 
-  // Bloqueo para el botón de guardar
   const formBloqueadoGuardar = entidadNoPuedeEnviar || isYaFinalizadoEnBD;
 
   const activeChild = children[pagerIndex] ?? null;
@@ -180,6 +180,21 @@ export default function SeguimientoPage() {
     canAudit && 
     !!childOriginal?.observacion_calidad && 
     childOriginal.observacion_calidad.trim().length > 0;
+
+  // <--- CANDADO LÓGICO PARA EL EVALUADOR --->
+  // Interceptamos lo que se escribe en el formulario
+  const handleUpdateLocal = (key: string, value: any) => {
+    // Si el usuario es Evaluador/Auditor...
+    if (canAudit && !isAdmin) {
+      // Y trata de modificar un campo de la entidad...
+      if (key === "descripcion_actividades" || key === "evidencia_cumplimiento" || key === "fecha_reporte") {
+         // Ignoramos el cambio silenciosamente. El texto se queda igual.
+         return; 
+      }
+    }
+    // Si no es un campo prohibido, lo dejamos pasar normalmente
+    updateLocal(key as any, value);
+  };
 
   const [sending, setSending] = React.useState(false);
   async function handleEnviar() {
@@ -337,15 +352,18 @@ export default function SeguimientoPage() {
 
               <SeguimientoForm
                 value={current as any}
-                onChange={updateLocal as any}
+                // Usamos la nueva función interceptora
+                onChange={handleUpdateLocal as any}
                 readOnlyFields={{
                   observacion_calidad: isEntidad || auditorYaEvaluoSeguimiento || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   aprobado_evaluador: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   plan_observacion_calidad: auditorYaEvaluoPlan || bloqueoGlobalPorFinalizado || isYaFinalizadoEnBD,
                   
-                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad || (canAudit && !isAdmin),
-                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad || (canAudit && !isAdmin),
-                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad || (canAudit && !isAdmin),
+                  // Se ha quitado la restricción visual para el auditor, 
+                  // para que el componente no oculte los textos de la Entidad
+                  descripcion_actividades: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
+                  evidencia_cumplimiento: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
+                  fecha_reporte: bloqueoGlobalPorFinalizado || bloqueoTotalEntidad,
                   
                   seguimiento: bloqueoGlobalPorFinalizado || bloqueoSelectorEstado || isYaFinalizadoEnBD,
                 }}
@@ -404,7 +422,6 @@ export default function SeguimientoPage() {
                     <button
                       type="button"
                       onClick={handleEnviar}
-                      // BLOQUEO  DE GUARDADO SI YA ESTÁ FINALIZADO
                       disabled={!isDuplicableCurrent || sending || formBloqueadoGuardar}
                       className="inline-flex items-center gap-2 rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-60 w-full sm:w-auto"
                       title={formBloqueadoGuardar ? "No se puede modificar." : "Guardar y enviar"}
